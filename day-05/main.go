@@ -181,7 +181,7 @@ func parseMovement(lines []string) ([]Movement, error) {
 		}
 
 		// Note that From and To are zero-indexed
-		cmds = append(cmds, Movement{count, from-1, to-1})
+		cmds = append(cmds, Movement{count, from - 1, to - 1})
 	}
 
 	return cmds, nil

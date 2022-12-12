@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"log"
+	"os"
 	"strings"
 )
 
@@ -51,8 +51,8 @@ func charSet(s string) CharSet {
 
 func priority(c rune) int {
 	if c >= 'a' {
-		return int(c - 'a') + 1
+		return int(c-'a') + 1
 	} else {
-		return int(c - 'A') + 27
+		return int(c-'A') + 27
 	}
 }
