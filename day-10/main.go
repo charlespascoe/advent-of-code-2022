@@ -33,7 +33,6 @@ func main() {
 	fmt.Printf("Display:\n%s\n", crt)
 }
 
-
 func readInstructions(lines []string) ([]Instruction, error) {
 	var prog []Instruction
 

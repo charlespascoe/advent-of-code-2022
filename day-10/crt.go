@@ -27,7 +27,7 @@ func NewCRT(x *int) *CRT {
 
 func (crt *CRT) String() string {
 	lines := make([]string, 0, len(crt.display)+2)
-	top := strings.Repeat("░", len(crt.display[0]) + 4)
+	top := strings.Repeat("░", len(crt.display[0])+4)
 	lines = append(lines, top)
 
 	for _, l := range crt.display {

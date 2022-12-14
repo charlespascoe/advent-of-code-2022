@@ -5,7 +5,7 @@ type Device interface {
 }
 
 type Clock struct {
-	cycle int
+	cycle   int
 	devices []Device
 }
 

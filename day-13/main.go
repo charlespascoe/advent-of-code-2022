@@ -68,7 +68,7 @@ func main() {
 		fmt.Println(ps)
 
 		if ps == "[[2]]" || ps == "[[6]]" {
-			decoderKey *= i+1
+			decoderKey *= i + 1
 		}
 	}
 

@@ -51,7 +51,6 @@ func readLines(path string) ([]string, error) {
 	}
 }
 
-
 func render(m Map, start, end Pos, path []Pos) {
 	var buf [][]byte
 

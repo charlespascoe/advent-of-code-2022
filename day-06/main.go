@@ -1,10 +1,10 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"os"
-	"flag"
 )
 
 func main() {
@@ -23,7 +23,7 @@ func main() {
 	}
 
 	for i := 0; i < len(input)-seqLen; i++ {
-		if allUnique(input[i:i+seqLen]) {
+		if allUnique(input[i : i+seqLen]) {
 			fmt.Printf("Start: %d\n", i+seqLen)
 			break
 		}
