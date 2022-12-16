@@ -3,31 +3,39 @@ package main
 import (
 	"fmt"
 	"regexp"
-	"strconv"
 )
 
+type Point struct {
+	// Note: +ve X is right, +ve Y is down
+	X, Y int
+}
+
+// ManhattanDist returns the Manhattan distance to the given point
+func (p Point) ManhattanDist(other Point) int {
+	return Abs(p.X-other.X) + Abs(p.Y-other.Y)
+}
+
 type Sensor struct {
-	Pos Vector
+	Pos Point
 
 	// Beacon is the closest beacon to this sensor
-	Beacon Vector
+	Beacon Point
 
-	// Range is the distance to the nearest beacon; no other beacon can be found
-	// within this range.
+	// Range is the Manhattan distance to the nearest beacon; no other beacon
+	// can be found within this range.
 	Range int
 }
 
 // InRange returns true if the given position falls within the range of the
 // sensor
-func (s Sensor) InRange(pos Vector) bool {
-	return pos.Sub(s.Pos).Magnitude() <= s.Range
+func (s Sensor) InRange(pos Point) bool {
+	return s.Pos.ManhattanDist(pos) <= s.Range
 }
 
 // RangeRightEdge returns the x value of the rightmost edge of the sensor range
 // for the given y value
 func (s Sensor) RangeRightEdge(y int) int {
-	xdelta := s.Range - abs(s.Pos.Y-y)
-
+	xdelta := s.Range - Abs(s.Pos.Y-y)
 	if xdelta < 0 {
 		panic("y value not in range")
 	}
@@ -38,19 +46,8 @@ func (s Sensor) RangeRightEdge(y int) int {
 // XBounds returns the minimum and maximum X values of the scan ranges seen so
 // far.
 func XBounds(s Sensor, minX, maxX int) (newMinX, newMaxX int) {
-	newMinX = minX
-	newMaxX = maxX
-
-	mag := s.Beacon.Sub(s.Pos).Magnitude()
-
-	if s.Pos.X-mag < newMinX {
-		newMinX = s.Pos.X - mag
-	}
-
-	if s.Pos.X+mag > newMaxX {
-		newMaxX = s.Pos.X + mag
-	}
-
+	newMinX, _ = MinMax(s.Pos.X-s.Range, minX)
+	_, newMaxX = MinMax(s.Pos.X+s.Range, maxX)
 	return
 }
 
@@ -60,36 +57,21 @@ func ParseSensors(lines []string) ([]Sensor, error) {
 	var sensors []Sensor
 
 	for i, line := range lines {
-		match := sensorRe.FindStringSubmatch(line)
-		if match == nil {
-			return nil, fmt.Errorf("line %d does not match expected format", i+1)
+		var sensor Sensor
+		err := ReadGroups(line, sensorRe,
+			&sensor.Pos.X,
+			&sensor.Pos.Y,
+			&sensor.Beacon.X,
+			&sensor.Beacon.Y,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("line %d does not match expected format: %s", i+1, err)
 		}
 
-		// Don't worry about errors - just rely on regular expression
-		pos := Vector{
-			X: MustAtoi(match[1]),
-			Y: MustAtoi(match[2]),
-		}
+		sensor.Range = sensor.Pos.ManhattanDist(sensor.Beacon)
 
-		beacon := Vector{
-			X: MustAtoi(match[3]),
-			Y: MustAtoi(match[4]),
-		}
-
-		sensors = append(sensors, Sensor{
-			Pos:    pos,
-			Beacon: beacon,
-			Range:  beacon.Sub(pos).Magnitude(),
-		})
+		sensors = append(sensors, sensor)
 	}
 
 	return sensors, nil
-}
-
-func MustAtoi(str string) int {
-	if x, err := strconv.Atoi(str); err != nil {
-		panic(err)
-	} else {
-		return x
-	}
 }

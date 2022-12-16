@@ -4,8 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"os"
-	"strings"
 )
 
 func main() {
@@ -14,7 +12,7 @@ func main() {
 	scanBounds := flag.Int("b", 4_000_000, "x/y bounds for scanning (part 2)")
 	flag.Parse()
 
-	lines, err := readLines(*input)
+	lines, err := ReadLines(*input)
 	if err != nil {
 		log.Fatalf("Couldn't read input file: %s", err)
 	}
@@ -40,7 +38,7 @@ func main() {
 
 	for x := minX; x <= maxX; x++ {
 		for _, sensor := range sensors {
-			pos := Vector{x, *yScan}
+			pos := Point{x, *yScan}
 			if sensor.Beacon != pos && sensor.InRange(pos) {
 				inRange++
 				break
@@ -56,21 +54,14 @@ func main() {
 	xloop:
 		for x := 0; x <= *scanBounds; x++ {
 			for _, sensor := range sensors {
-				if sensor.InRange(Vector{x, y}) {
+				if sensor.InRange(Point{x, y}) {
 					x = sensor.RangeRightEdge(y)
 					continue xloop
 				}
 			}
 
 			fmt.Printf("Position: %d %d, tuning frequency: %d\n", x, y, 4_000_000*x+y)
+			return
 		}
-	}
-}
-
-func readLines(path string) ([]string, error) {
-	if data, err := os.ReadFile(path); err != nil {
-		return nil, err
-	} else {
-		return strings.Split(strings.TrimSpace(string(data)), "\n"), nil
 	}
 }
