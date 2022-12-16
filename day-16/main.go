@@ -11,6 +11,7 @@ import (
 
 func main() {
 	input := flag.String("i", "input.txt", "program input")
+	part2 := flag.Bool("part2", false, "print part 2 solution")
 	flag.Parse()
 
 	lines, err := readLines(*input)
@@ -38,7 +39,15 @@ func main() {
 
 	instScore := InstantaneousScore(m)
 
-	bestCost := BestSolution(m, "AA", make([]string, 0, len(m.Valves)), make(map[string]bool), 30, 0, instScore)
+	var bestCost int
+
+	if !*part2 {
+		// Part 1 //
+		bestCost = BestSolution(m, "AA", make([]string, 0, len(m.Valves)), make(map[string]bool), false, false, 30, 0, instScore)
+	} else {
+		// Part 2 //
+		bestCost = BestSolution(m, "AA", make([]string, 0, len(m.Valves)), make(map[string]bool), true, false, 26, 0, instScore)
+	}
 
 	fmt.Printf("Instantaneous Score: %d, Best Cost: %d, resulting in score: %d\n", instScore, bestCost, instScore-bestCost)
 }
@@ -51,8 +60,16 @@ func readLines(path string) ([]string, error) {
 	}
 }
 
-func BestSolution(m *Map, pos string, path []string, valvesOn map[string]bool, minutesLeft, cumCost, bestCost int) int {
+func BestSolution(m *Map, pos string, path []string, valvesOn map[string]bool, withElephant, isElephant bool, minutesLeft, cumCost, bestCost int) int {
 	elapsed := 30 - minutesLeft
+
+	if withElephant && !isElephant {
+		newBestCost := BestSolution(m, "AA", path, valvesOn, withElephant, true, 26, cumCost, bestCost)
+
+		if newBestCost < bestCost {
+			bestCost = newBestCost
+		}
+	}
 
 	attempted := 0
 
@@ -65,12 +82,8 @@ func BestSolution(m *Map, pos string, path []string, valvesOn map[string]bool, m
 
 		attempted++
 
-		// fmt.Printf("Path: %v, Trying %s...\n", path, v.Name)
-
 		// The extra +1 is to account for the one minute to open the valve
 		timeToOpen := m.GetDist(pos, v.Name) + 1
-
-		// fmt.Printf("TTO: %d, Rem: %d\n", timeToOpen, minutesLeft)
 
 		if timeToOpen >= minutesLeft {
 			// Not enough time; total our cost for this solution and see how it
@@ -78,8 +91,6 @@ func BestSolution(m *Map, pos string, path []string, valvesOn map[string]bool, m
 			// solutionCost := cumCost + CostOfUnopendValves(m, valvesOn)
 			cost :=  CostOfUnopendValves(m, valvesOn)
 			solutionCost := cumCost + cost
-
-			// fmt.Printf(">>>>>>>>>> CumCost: %d, Cost: %d, Sum: %d, BestCost: %d\n", cumCost, cost, cumCost + cost, bestCost)
 
 			if solutionCost < bestCost {
 				bestCost = solutionCost
@@ -100,7 +111,7 @@ func BestSolution(m *Map, pos string, path []string, valvesOn map[string]bool, m
 		}
 
 		valvesOn[v.Name] = true
-		newBestCost := BestSolution(m, v.Name, append(path, v.Name), valvesOn, minutesLeft-timeToOpen, cumCost+cost, bestCost)
+		newBestCost := BestSolution(m, v.Name, append(path, v.Name), valvesOn, withElephant, isElephant, minutesLeft-timeToOpen, cumCost+cost, bestCost)
 		valvesOn[v.Name] = false
 
 		if newBestCost < bestCost {
