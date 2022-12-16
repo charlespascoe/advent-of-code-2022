@@ -61,12 +61,12 @@ func readLines(path string) ([]string, error) {
 }
 
 func BestSolution(m *Map, pos string, path []string, valvesOn map[string]bool, withElephant, isElephant bool, minutesLeft, cumCost, bestCost int) int {
-	elapsed := 30 - minutesLeft
+	// elapsed := 30 - minutesLeft
 
 	if withElephant && !isElephant {
-		newBestCost := BestSolution(m, "AA", path, valvesOn, withElephant, true, 26, cumCost, bestCost)
+		newBestCost := BestSolution(m, "AA", path, valvesOn, withElephant, true, 26, 0, bestCost)
 
-		if newBestCost < bestCost {
+		if cumCost+newBestCost < bestCost {
 			bestCost = newBestCost
 		}
 	}
@@ -89,7 +89,7 @@ func BestSolution(m *Map, pos string, path []string, valvesOn map[string]bool, w
 			// Not enough time; total our cost for this solution and see how it
 			// compares
 			// solutionCost := cumCost + CostOfUnopendValves(m, valvesOn)
-			cost :=  CostOfUnopendValves(m, valvesOn)
+			cost :=  CostOfUnopendValves(m, valvesOn, minutesLeft)
 			solutionCost := cumCost + cost
 
 			if solutionCost < bestCost {
@@ -99,10 +99,9 @@ func BestSolution(m *Map, pos string, path []string, valvesOn map[string]bool, w
 			continue
 		}
 
-		// The cost from our total score from the start to the point at which
-		// we'd have the valve open
-		cost := v.Rate * (elapsed + timeToOpen)
-
+		// The additional cost from our total score from the start to the point
+		// at which we'd have the valve open
+		cost := CostOfUnopendValves(m, valvesOn, timeToOpen)
 
 		if cumCost+cost >= bestCost {
 			// This wouldn't be a better solution than the best we've seen;
@@ -128,12 +127,12 @@ func BestSolution(m *Map, pos string, path []string, valvesOn map[string]bool, w
 	return bestCost
 }
 
-func CostOfUnopendValves(m *Map, valvesOn map[string]bool) int {
+func CostOfUnopendValves(m *Map, valvesOn map[string]bool, dur int) int {
 	sum := 0
 
 	for _, v := range m.Valves {
 		if !valvesOn[v.Name] {
-			sum += v.Rate * 30
+			sum += v.Rate * dur
 		}
 	}
 
