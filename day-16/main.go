@@ -92,10 +92,10 @@ type Workers []Worker
 func (w Workers) Next() (Worker, int) {
 	var next Worker
 	idx := 0
-	arrival := 0
+	arrival := -MaxInt64
 
 	for i, wrkr := range w {
-		if wrkr.Arrival > arrival {
+		if wrkr.Arrival >= arrival {
 			next = wrkr
 			idx = i
 			arrival = wrkr.Arrival
@@ -217,7 +217,7 @@ func (s *Solver) Solve(pos string, minutesLeft, cumCost int, depth int) {
 }
 
 func (s *Solver) SolveMulti(workers Workers, lastUpdate int, cumCost int, depth int) {
-	fmt.Printf("Depth: %d\n", depth)
+	// fmt.Printf("Depth: %d\n", depth)
 	attempted := 0
 
 	worker, wi := workers.Next()
@@ -227,6 +227,10 @@ func (s *Solver) SolveMulti(workers Workers, lastUpdate int, cumCost int, depth 
 	// fmt.Printf("Workers: %v\n", workers)
 	// Arrived and finished turning on valve; increment cost so far
 	// fmt.Printf("W: %d, L: %d, A: %d, D: %d\n", wi, lastUpdate, minutesLeft, lastUpdate-minutesLeft)
+	if minutesLeft < 0 {
+		minutesLeft = 0
+	}
+
 	cumCost += s.CostOfUnopendValves(lastUpdate - minutesLeft)
 
 	if minutesLeft == 0 && cumCost < s.BestCost {
@@ -250,10 +254,23 @@ func (s *Solver) SolveMulti(workers Workers, lastUpdate int, cumCost int, depth 
 
 		// The extra +1 is to account for the one minute to open the valve
 		timeToOpen := s.Map.GetDist(pos, v.Name) + 1
+		if timeToOpen <= 0 {
+			fmt.Printf("F: %s T: %s TTO: %d\n", pos, v.Name, timeToOpen)
+			panic("INVALID TTO")
+		}
 
-		if timeToOpen > minutesLeft {
+		if timeToOpen < minutesLeft {
+			// The additional cost from our total score from the start to the point
+			// at which we'd have the valve open
+			cost := v.Rate*timeToOpen //s.CostOfUnopendValves(timeToOpen)
+
+			if cumCost+cost >= s.BestCost {
+				// This wouldn't be a better solution than the best we've seen;
+				// skip it
+				continue
+			}
 			// Not enough time
-			continue
+			// continue
 			// Not enough time; total our cost for this solution and see how it
 			// compares
 			// solutionCost := cumCost + CostOfUnopendValves(m, valvesOn)
@@ -267,15 +284,6 @@ func (s *Solver) SolveMulti(workers Workers, lastUpdate int, cumCost int, depth 
 			// continue
 		}
 
-		// The additional cost from our total score from the start to the point
-		// at which we'd have the valve open
-		cost := v.Rate*timeToOpen //s.CostOfUnopendValves(timeToOpen)
-
-		if cumCost+cost >= s.BestCost {
-			// This wouldn't be a better solution than the best we've seen;
-			// skip it
-			continue
-		}
 
 		// s.ValvesOn[v.Name] = true
 		workers[wi].Pos = v.Name
