@@ -19,7 +19,10 @@ func main() {
 
 	droplet := BuildDroplet(input)
 
-	fmt.Printf("Surface Area: %d\n", droplet.surfaceArea)
+	extSurfaceArea := droplet.CalcExternalSurfaceArea()
+	droplet.Print()
+	fmt.Printf("Total Surface Area: %d\n", droplet.surfaceArea)
+	fmt.Printf("External Surface Area: %d\n", extSurfaceArea)
 }
 
 func readInput(path string) ([]Vector, error) {
