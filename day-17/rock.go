@@ -46,7 +46,8 @@ func (rock Rock) WriteTo(rows []byte) {
 }
 
 // Note: The first row is closest to the floor, so these rocks are essentially
-// upside down. All rocks are in their starting position.
+// upside down. All rocks are in their starting position (two units from the
+// left wall).
 var rocks = []Rock{
 	{0b0011110},
 	{

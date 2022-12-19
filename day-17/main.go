@@ -20,20 +20,79 @@ func main() {
 
 	fmt.Printf("Jets: %d\n", len(input))
 
+	height := 0
+
+	if !*part2 {
+		height = solvePart1(input)
+	} else {
+		height = solvePart2(input)
+	}
+
+	fmt.Printf("Height: %d\n", height)
+}
+
+func solvePart1(input string) int {
 	sim := NewSimulator(input)
 
 	limit := 2022
-	if !*part2 {
-		for sim.RocksSettled() < limit {
-			sim.Step()
-		}
-	} else {
-		limit = 1_000_000_000_000
 
-		// TODO: Implement
+	for sim.RocksSettled() < limit {
+		sim.Step()
 	}
 
-	fmt.Printf("Height after %d rocks: %d\n", sim.RocksSettled(), sim.Height())
+	return sim.Height()
+}
+
+func solvePart2(input string) int {
+	// Although this is solution is functionally identical to part 1, it is
+	// provided separately for clarity
+
+	limit := 1_000_000_000_000
+
+	tortoise := NewSimulator(input)
+	hare := NewSimulator(input)
+
+	hare.Step()
+	hare.Step()
+	tortoise.Step()
+
+	for !tortoise.HasSameState(hare) {
+		hare.Step()
+		hare.Step()
+		tortoise.Step()
+	}
+
+	tortoise = NewSimulator(input)
+
+	for !tortoise.HasSameState(hare) {
+		hare.Step()
+		tortoise.Step()
+	}
+
+	hare.Step()
+
+	for !tortoise.HasSameState(hare) {
+		hare.Step()
+	}
+
+	rocksPerLoop := hare.RocksSettled() - tortoise.RocksSettled()
+	heightPerLoop := hare.Height() - tortoise.Height()
+
+	loops := (limit - tortoise.RocksSettled()) / rocksPerLoop
+	remaining := (limit - tortoise.RocksSettled()) % rocksPerLoop
+
+	newLimit := tortoise.RocksSettled() + remaining
+
+	fmt.Printf("Tortoise: %d, %d; Hare: %d, %d\n", tortoise.RocksSettled(), tortoise.Height(), hare.RocksSettled(), hare.Height())
+	fmt.Printf("Rocks/Loop: %d, Height/Loop: %d\n", rocksPerLoop, heightPerLoop)
+	fmt.Printf("Tortoise Cave:\n%s\nHare Cave:\n%s\n", tortoise.cave.TopUntilBlocked(), hare.cave.TopUntilBlocked())
+	fmt.Printf("Loops: %d, Remaining: %d, New Limit: %d\n", loops, remaining, newLimit)
+
+	for tortoise.RocksSettled() < newLimit {
+		tortoise.Step()
+	}
+
+	return tortoise.Height() + heightPerLoop*loops
 }
 
 func Print(c Cave, pos int, s Rock, msg string) {

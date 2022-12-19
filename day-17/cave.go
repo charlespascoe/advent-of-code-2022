@@ -1,6 +1,8 @@
 package main
 
-import "strings"
+import (
+	"strings"
+)
 
 type Cave []byte
 
@@ -43,4 +45,35 @@ func (c Cave) String() string {
 	}
 
 	return out.String()
+}
+
+func (c Cave) TopUntilBlocked() Cave {
+	var prev byte
+
+	for i := len(c) - 1; i >= 0; i-- {
+		row := c[i]
+
+		// It's not perfect, but it should be enough to find a loop point
+		if prev|row == 0b1111111 {
+			return c.RowsFrom(i)
+		}
+
+		prev = row
+	}
+
+	return c
+}
+
+func (c Cave) Equals(other Cave) bool {
+	if len(c) != len(other) {
+		return false
+	}
+
+	for i, row := range c {
+		if other[i] != row {
+			return false
+		}
+	}
+
+	return true
 }
