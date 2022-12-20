@@ -28,60 +28,47 @@ func main() {
 
 	printnums(input, indices)
 
-	done := 0
-	i := 0
-	for done < len(indices) {
-		for indices[i] != done {
-			i = mod(i+1, len(input))
-		}
-
-		x := input[indices[i]]
-		from := i
-		to := x + i
+	for i, val := range input {
+		from := getpos(i, indices)
+		to := from + val
 		move(from, to, indices)
-		done++
 
 		if *debug {
 			fmt.Println()
-			fmt.Printf("Move val %d at %d to %d (%d), Done %d\n", x, from, to, mod(to, len(input)), done)
+			fmt.Printf("Move val %d at %d to %d (%d), Done %d\n", val, from, to, mod(to, len(input)), i+1)
 			printnums(input, indices, from, mod(to, len(input)))
 		}
 	}
 
 	zeroPos := 0
 
-	for _, idx := range indices {
+	for i, idx := range indices {
 		if input[idx] == 0 {
-			zeroPos = idx
+			zeroPos = i
 			break
 		}
 	}
 
-	fmt.Printf("Zero pos: %d\n", zeroPos)
+	fmt.Printf("Zero pos: %d (%d)\n", zeroPos, input[indices[zeroPos]])
 	result := getval(input, indices, zeroPos+1000) + getval(input, indices, zeroPos+2000) + getval(input, indices, zeroPos+3000)
 	fmt.Printf("Result: %d\n", result)
+}
+
+func getpos(i int, indices []int) int {
+	for pos, idx := range indices {
+		if idx == i {
+			return pos
+		}
+	}
+
+	panic("not found")
 }
 
 func getval(input, indices []int, pos int) int {
 	return input[indices[mod(pos, len(indices))]]
 }
 
-func newpos(i, val, n int) (pos, ni int) {
-	pos = mod(i + val, n)
-	ni = i
-
-	if val < 0 {
-		pos = mod(pos - 1, n)
-
-		if pos > i {
-			ni = i - 1
-		}
-	}
-
-	return
-}
-
-func move(from, to int, nums []int)  {
+func move(from, to int, nums []int) {
 	dir := 1
 	if to <= from {
 		dir = -1
@@ -109,7 +96,7 @@ func printnums(nums, indices []int, special ...int) {
 		// fmt.Printf("%2d : ", indices[i])
 		v := indices[i]
 		if c := s[i]; c > 0 {
-			fmt.Printf("\033[%dm%2d\033[0m | ", c+30, v)
+			fmt.Printf("\033[%dm%2d\033[0m : ", c+30, v)
 		} else {
 			fmt.Printf("%2d : ", v)
 		}
@@ -119,7 +106,7 @@ func printnums(nums, indices []int, special ...int) {
 		// fmt.Printf("%2d : ", nums[indices[i]])
 		v := nums[indices[i]]
 		if c := s[i]; c > 0 {
-			fmt.Printf("\033[%dm%2d\033[0m | ", c+30, v)
+			fmt.Printf("\033[%dm%2d\033[0m : ", c+30, v)
 		} else {
 			fmt.Printf("%2d : ", v)
 		}
