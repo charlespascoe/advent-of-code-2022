@@ -5,6 +5,14 @@ import (
 	"strings"
 )
 
+type Vector struct {
+	X, Y, Z int
+}
+
+func (v Vector) Add(other Vector) Vector {
+	return Vector{v.X + other.X, v.Y + other.Y, v.Z + other.Z}
+}
+
 // TODO: is there a better way of doing this?
 var adjacent = []Vector{
 	{-1, 0, 0},
@@ -15,19 +23,11 @@ var adjacent = []Vector{
 	{0, 0, 1},
 }
 
-type Vector struct {
-	X, Y, Z int
-}
-
 const (
 	Air   = 0
 	Rock  = 1
 	Water = 2
 )
-
-func (v Vector) Add(other Vector) Vector {
-	return Vector{v.X + other.X, v.Y + other.Y, v.Z + other.Z}
-}
 
 type Droplet struct {
 	cubes                 [][][]int
@@ -68,7 +68,7 @@ func BuildDroplet(input []Vector) Droplet {
 		// the new surface area of the cube
 		droplet.surfaceArea += 6 - 2*adj
 
-		droplet.cubes[pos.X][pos.Y][pos.Z] = 1
+		droplet.cubes[pos.X][pos.Y][pos.Z] = Rock
 	}
 
 	return droplet
