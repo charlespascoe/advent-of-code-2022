@@ -9,9 +9,11 @@ import (
 	"strings"
 )
 
+
 func main() {
 	inputFile := flag.String("i", "input.txt", "program input")
-	debug := flag.Bool("d", false, "debug output")
+	part2 := flag.Bool("part2", false, "print part 2 solution")
+
 	flag.Parse()
 
 	input, err := readInput(*inputFile)
@@ -22,22 +24,22 @@ func main() {
 	fmt.Printf("Input: %v\n", input)
 
 	indices := make([]int, 0, len(input))
+
 	for i := range input {
 		indices = append(indices, i)
+
+		if *part2 {
+			input[i] *= 811589153
+		}
 	}
 
-	printnums(input, indices)
+	mixCount := 1
+	if *part2 {
+		mixCount = 10
+	}
 
-	for i, val := range input {
-		from := getpos(i, indices)
-		to := from + val
-		move(from, to, indices)
-
-		if *debug {
-			fmt.Println()
-			fmt.Printf("Move val %d at %d to %d (%d), Done %d\n", val, from, to, mod(to, len(input)), i+1)
-			printnums(input, indices, from, mod(to, len(input)))
-		}
+	for i := 0; i < mixCount; i++ {
+		mix(input, indices)
 	}
 
 	zeroPos := 0
@@ -52,6 +54,14 @@ func main() {
 	fmt.Printf("Zero pos: %d (%d)\n", zeroPos, input[indices[zeroPos]])
 	result := getval(input, indices, zeroPos+1000) + getval(input, indices, zeroPos+2000) + getval(input, indices, zeroPos+3000)
 	fmt.Printf("Result: %d\n", result)
+}
+
+func mix(input, indices []int) {
+	for i, val := range input {
+		from := getpos(i, indices)
+		to := (from + val) % (len(indices) - 1)
+		move(from, to, indices)
+	}
 }
 
 func getpos(i int, indices []int) int {
@@ -79,48 +89,6 @@ func move(from, to int, nums []int) {
 	for i := from; i != to; i += dir {
 		nums[mod(i, n)], nums[mod(i+dir, n)] = nums[mod(i+dir, n)], nums[mod(i, n)]
 	}
-}
-
-func printnums(nums, indices []int, special ...int) {
-	s := toset(special)
-	for i := 0; i < len(nums); i++ {
-		v := i
-		if c := s[i]; c > 0 {
-			fmt.Printf("\033[%dm%2d\033[0m | ", c+30, v)
-		} else {
-			fmt.Printf("%2d | ", v)
-		}
-	}
-	fmt.Println()
-	for i := 0; i < len(nums); i++ {
-		// fmt.Printf("%2d : ", indices[i])
-		v := indices[i]
-		if c := s[i]; c > 0 {
-			fmt.Printf("\033[%dm%2d\033[0m : ", c+30, v)
-		} else {
-			fmt.Printf("%2d : ", v)
-		}
-	}
-	fmt.Println()
-	for i := 0; i < len(nums); i++ {
-		// fmt.Printf("%2d : ", nums[indices[i]])
-		v := nums[indices[i]]
-		if c := s[i]; c > 0 {
-			fmt.Printf("\033[%dm%2d\033[0m : ", c+30, v)
-		} else {
-			fmt.Printf("%2d : ", v)
-		}
-	}
-
-	fmt.Println()
-}
-
-func toset(nums []int) map[int]int {
-	m := make(map[int]int)
-	for i, x := range nums {
-		m[x] = i + 1
-	}
-	return m
 }
 
 // mod returns the positive value of x mod n
