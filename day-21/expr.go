@@ -5,19 +5,19 @@ import (
 	"strings"
 )
 
-type ExprNode interface {
-	Simplify() ExprNode
+type Expression interface {
+	Simplify() Expression
 	String() string
 }
 
 type Operation struct {
 	Name        string
-	Left, Right ExprNode
+	Left, Right Expression
 	Op          Operator
 	opStr       string
 }
 
-func (op Operation) Simplify() ExprNode {
+func (op Operation) Simplify() Expression {
 	op.Left = op.Left.Simplify()
 	op.Right = op.Right.Simplify()
 
@@ -36,9 +36,9 @@ func (op Operation) Simplify() ExprNode {
 func (op Operation) String() string {
 	var str strings.Builder
 
-	str.WriteString(fmt.Sprintf("%s: %s\n    ", op.Name, op.opStr))
-	str.WriteString(strings.Join(strings.Split(op.Left.String(), "\n"), "\n    "))
-	str.WriteString("\n    ")
+	str.WriteString(fmt.Sprintf("%s: %s\n  L ", op.Name, op.opStr))
+	str.WriteString(strings.Join(strings.Split(op.Left.String(), "\n"), "\n  . "))
+	str.WriteString("\n  R ")
 	str.WriteString(strings.Join(strings.Split(op.Right.String(), "\n"), "\n    "))
 
 	return str.String()
@@ -49,7 +49,7 @@ type Literal struct {
 	Val  int
 }
 
-func (con Literal) Simplify() ExprNode {
+func (con Literal) Simplify() Expression {
 	return con
 }
 
@@ -57,17 +57,19 @@ func (con Literal) String() string {
 	return fmt.Sprintf("%s: %d", con.Name, con.Val)
 }
 
-type Unknown struct{}
+type Unknown struct {
+	Name string
+}
 
-func (unk Unknown) Simplify() ExprNode {
+func (unk Unknown) Simplify() Expression {
 	return unk
 }
 
 func (unk Unknown) String() string {
-	return "Unknown"
+	return fmt.Sprintf("%s: Unknown", unk.Name)
 }
 
-func BuiltAST(exprs StatementMap, key string) ExprNode {
+func BuiltAST(exprs StatementMap, key string) Expression {
 	switch expr := exprs[key].(type) {
 	case OperationStatement:
 		return Operation{
@@ -85,7 +87,9 @@ func BuiltAST(exprs StatementMap, key string) ExprNode {
 		}
 
 	case Unknown:
-		return Unknown{}
+		return Unknown{
+			Name: key,
+		}
 
 	default:
 		panic(fmt.Sprintf("unexpected type %T", exprs[key]))
