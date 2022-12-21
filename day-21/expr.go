@@ -2,93 +2,92 @@ package main
 
 import (
 	"fmt"
-	"regexp"
-	"strconv"
+	"strings"
 )
 
-var exprRe = regexp.MustCompile(`^(\w+): (?:(\d+)|(\w+) ([-+*/]) (\w+))`)
-
-type Operator struct {
-	Name            string
-	Left, Op, Right string
+type ExprNode interface {
+	Simplify() ExprNode
+	String() string
 }
 
-type Constant struct {
+type Operation struct {
+	Name        string
+	Left, Right ExprNode
+	Op          Operator
+	opStr       string
+}
+
+func (op Operation) Simplify() ExprNode {
+	op.Left = op.Left.Simplify()
+	op.Right = op.Right.Simplify()
+
+	left, lok := op.Left.(Literal)
+	right, rok := op.Right.(Literal)
+	if lok && rok {
+		return Literal{
+			Name: op.Name,
+			Val:  op.Op.Apply(left.Val, right.Val),
+		}
+	}
+
+	return op
+}
+
+func (op Operation) String() string {
+	var str strings.Builder
+
+	str.WriteString(fmt.Sprintf("%s: %s\n    ", op.Name, op.opStr))
+	str.WriteString(strings.Join(strings.Split(op.Left.String(), "\n"), "\n    "))
+	str.WriteString("\n    ")
+	str.WriteString(strings.Join(strings.Split(op.Right.String(), "\n"), "\n    "))
+
+	return str.String()
+}
+
+type Literal struct {
 	Name string
 	Val  int
 }
 
-type ExprMap map[string]any
-
-
-
-func buildExprMap(lines []string) ExprMap {
-	exprs := make(ExprMap, len(lines))
-
-	for _, line := range lines {
-		match := exprRe.FindStringSubmatch(line)
-		if match == nil {
-			panic("invalid input")
-		}
-
-		name := match[1]
-
-		if match[2] != "" {
-			exprs[name] = Constant{
-				Name: name,
-				Val:  MustAtoi(match[2]),
-			}
-		} else {
-			exprs[name] = Operator{
-				Name:  name,
-				Left:  match[3],
-				Op:    match[4],
-				Right: match[5],
-			}
-		}
-	}
-
-	return exprs
+func (con Literal) Simplify() ExprNode {
+	return con
 }
 
-func (exprs ExprMap) Eval(key string) int {
-	switch val := exprs[key].(type) {
-	case Constant:
-		return val.Val
-	case Operator:
-		return exprs.evalOp(val)
+func (con Literal) String() string {
+	return fmt.Sprintf("%s: %d", con.Name, con.Val)
+}
+
+type Unknown struct{}
+
+func (unk Unknown) Simplify() ExprNode {
+	return unk
+}
+
+func (unk Unknown) String() string {
+	return "Unknown"
+}
+
+func BuiltAST(exprs StatementMap, key string) ExprNode {
+	switch expr := exprs[key].(type) {
+	case OperationStatement:
+		return Operation{
+			Name:  key,
+			Left:  BuiltAST(exprs, expr.Left),
+			Right: BuiltAST(exprs, expr.Right),
+			Op:    GetOperation(expr.Op),
+			opStr: expr.Op,
+		}
+
+	case LiteralStatement:
+		return Literal{
+			Name: key,
+			Val:  expr.Val,
+		}
+
+	case Unknown:
+		return Unknown{}
+
 	default:
 		panic(fmt.Sprintf("unexpected type %T", exprs[key]))
-	}
-}
-
-func (exprs ExprMap) evalOp(op Operator) int {
-	left := exprs.Eval(op.Left)
-	right := exprs.Eval(op.Right)
-
-	switch op.Op {
-	case "-":
-		return left - right
-	case "+":
-		return left + right
-	case "*":
-		return left * right
-	case "/":
-		// Just in case the result isn't an int
-		if left%right != 0 {
-			panic("not int division")
-		}
-
-		return left / right
-	default:
-		panic(fmt.Sprintf("unknown operator '%s'", op.Op))
-	}
-}
-
-func MustAtoi(str string) int {
-	if x, err := strconv.Atoi(str); err != nil {
-		panic(err)
-	} else {
-		return x
 	}
 }
