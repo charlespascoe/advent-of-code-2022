@@ -10,6 +10,8 @@ import (
 
 func main() {
 	input := flag.String("i", "input.txt", "program input")
+	part2 := flag.Bool("part2", false, "print part 2 solution")
+
 	flag.Parse()
 
 	lines, err := readLines(*input)
@@ -17,7 +19,13 @@ func main() {
 		log.Fatalf("Couldn't read input file: %s", err)
 	}
 
-	result := EvalExpression(lines)
+	exprs := buildExprMap(lines)
+	var result int
+
+	if !*part2 {
+		// Part 1 //
+		result = exprs.Eval("root")
+	}
 
 	fmt.Printf("Result: %d\n", result)
 }
