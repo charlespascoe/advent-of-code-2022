@@ -3,88 +3,136 @@ package main
 import (
 	"fmt"
 	"regexp"
-	"sort"
 	"strings"
 )
 
-type Resource string
+type Resource int
 
-var resources = []Resource{
-	"ore",
-	"clay",
-	"obsidian",
-	"geode",
-}
-
-// const (
-// 	OreResource      Resource = "ore"
-// 	ClayResource     Resource = "clay"
-// 	ObsidianResource Resource = "obsidian"
-// 	GeodeResource    Resource = "geode"
-// )
-
-// func ParseResource(str string) Resource {
-// 	switch str {
-// 	case "ore":
-// 		return OreResource
-// 	case "clay":
-// 		return ClayResource
-// 	case "obsidian":
-// 		return ObsidianResource
-// 	case "geode":
-// 		return GeodeResource
-// 	default:
-// 		panic(fmt.Sprintf("unknown resource: %s", str))
-// 	}
-// }
-
-type Cost map[Resource]int
-
-func (cost Cost) Sub(other map[Resource]int) Cost {
-	res := make(Cost, len(resources))
-
-	for resource, count := range cost {
-		res[resource] = count - other[resource]
+func (res Resource) String() string {
+	switch res {
+	case OreResource:
+		return "ore"
+	case ClayResource:
+		return "clay"
+	case ObsidianResource:
+		return "obsidian"
+	case GeodeResource:
+		return "geode"
+	default:
+		return fmt.Sprintf("unknown resource (%d)", res)
 	}
-
-	return res
 }
 
-func AsSlice(res map[Resource]int) []ResourceCount {
-	slice := make([]ResourceCount, 0, len(res))
+const (
+	NoneResource     Resource = -1
+	OreResource      Resource = 0
+	ClayResource     Resource = 1
+	ObsidianResource Resource = 2
+	GeodeResource    Resource = 3
+)
+
+type Resources [4]int
+
+func (res Resources) String() string {
+	var str strings.Builder
 
 	for resource, count := range res {
-		slice = append(slice, ResourceCount{resource, count})
+		if str.Len() > 0 {
+			str.WriteString(", ")
+		}
+
+		str.WriteString(fmt.Sprintf("%s: %d", Resource(resource), count))
 	}
 
-	// Sort largest first
-	sort.Slice(slice, func(i, j int) bool {
-		return slice[i].Count > slice[j].Count
-	})
-
-	return slice
+	return str.String()
 }
 
-func ZeroValues(res map[Resource]int) []Resource {
+func (res Resources) Sub(other Resources) Resources {
+	var out Resources
+
+	for resource, count := range res {
+		out[resource] = count - other[resource]
+	}
+
+	return out
+}
+
+func (res Resources) EqualValues(other Resources) []Resource {
 	var out []Resource
 
 	for resource, count := range res {
-		if count == 0 {
-			out = append(out, resource)
+		if count > 0 && count == other[resource] {
+			out = append(out, Resource(resource))
 		}
 	}
 
 	return out
 }
 
+// var resources = []Resource{
+// 	"ore",
+// 	"clay",
+// 	"obsidian",
+// 	"geode",
+// }
+
+var resources = []Resource{
+	OreResource,
+	ClayResource,
+	ObsidianResource,
+	GeodeResource,
+}
+
+func ParseResource(str string) Resource {
+	switch str {
+	case "ore":
+		return OreResource
+	case "clay":
+		return ClayResource
+	case "obsidian":
+		return ObsidianResource
+	case "geode":
+		return GeodeResource
+	default:
+		panic(fmt.Sprintf("unknown resource: %s", str))
+	}
+}
+
+// type Cost map[Resource]int
+
+// func (cost Cost) Sub(other map[Resource]int) Cost {
+// 	res := make(Cost, len(resources))
+
+// 	for resource, count := range cost {
+// 		res[resource] = count - other[resource]
+// 	}
+
+// 	return res
+// }
+
+// func AsSlice(res map[Resource]int) []ResourceCount {
+// 	slice := make([]ResourceCount, 0, len(res))
+
+// 	for resource, count := range res {
+// 		slice = append(slice, ResourceCount{resource, count})
+// 	}
+
+// 	// Sort largest first
+// 	sort.Slice(slice, func(i, j int) bool {
+// 		return slice[i].Count > slice[j].Count
+// 	})
+
+// 	return slice
+// }
+
 type ResourceCount struct {
 	Resource Resource
-	Count int
+	Count    int
 }
 
 type Blueprint struct {
 	Number int
-	Costs  map[Resource]Cost
+	Costs  map[Resource]Resources
 	// OreRobot      RobotCost
 	// ClayRobot     RobotCost
 	// ObsidianRobot RobotCost
@@ -102,7 +150,7 @@ var (
 
 func ParseBlueprint(str string) Blueprint {
 	blueprint := Blueprint{
-		Costs: make(map[Resource]Cost),
+		Costs: make(map[Resource]Resources),
 	}
 
 	match := blueprintRe.FindStringSubmatch(str)
@@ -123,13 +171,13 @@ func ParseBlueprint(str string) Blueprint {
 			panic(fmt.Sprintf("invalid input: '%s'", robotCostStr))
 		}
 
-		robotCosts := make(map[Resource]int)
+		var robotCosts Resources
 
 		for _, resource := range resourceRe.FindAllStringSubmatch(robotCostStr[len(robotMatch[0]):], -1) {
-			robotCosts[Resource(resource[2])] = MustAtoi(resource[1])
+			robotCosts[ParseResource(resource[2])] = MustAtoi(resource[1])
 		}
 
-		blueprint.Costs[Resource(robotMatch[1])] = robotCosts
+		blueprint.Costs[ParseResource(robotMatch[1])] = robotCosts
 	}
 
 	return blueprint
