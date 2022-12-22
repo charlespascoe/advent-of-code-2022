@@ -46,12 +46,14 @@ func (tile *Tile) Move(dir Direction) *Tile {
 	return tile.Neighbours[dir]
 }
 
-type Map [][]*Tile
+type Map struct {
+	tiles [][]*Tile
+}
 
-func (m Map) String() string {
+func (m *Map) String() string {
 	var str strings.Builder
 
-	for i, row := range m {
+	for i, row := range m.tiles {
 		if str.Len() > 0 {
 			str.WriteByte('\n')
 		}
@@ -74,7 +76,93 @@ func (m Map) String() string {
 	return str.String()
 }
 
-func BuildMap(lines []string) (Map, *Tile) {
+func (m *Map) LinkFlat() {
+	prev := make([]*Tile, len(m.tiles[0]))
+	top := make([]*Tile, len(m.tiles[0]))
+
+	for _, row := range m.tiles {
+		var first, last *Tile
+
+		for i, tile := range row {
+			if tile != nil {
+				if first == nil {
+					first = tile
+				}
+
+				if prev[i] != nil {
+					prev[i].Neighbours[Down] = tile
+					tile.Neighbours[Up] = prev[i]
+				} else {
+					top[i] = tile
+				}
+
+				if last != nil {
+					last.Neighbours[Right] = tile
+					tile.Neighbours[Left] = last
+				}
+			} else {
+				if last != nil {
+					last.Neighbours[Right] = first
+					first.Neighbours[Left] = last
+				}
+
+				if prev[i] != nil {
+					prev[i].Neighbours[Down] = top[i]
+					top[i].Neighbours[Up] = prev[i]
+				}
+			}
+
+			last = tile
+		}
+
+		if last != nil {
+			last.Neighbours[Right] = first
+			first.Neighbours[Left] = last
+		}
+
+		prev = row
+	}
+
+	for i, tile := range prev {
+		if tile != nil {
+			tile.Neighbours[Down] = top[i]
+			top[i].Neighbours[Up] = tile
+		}
+	}
+
+}
+
+func (m *Map) checkAllPointers() {
+	invalid := 0
+
+	for _, row := range m.tiles {
+		for _, tile := range row {
+			if tile == nil {
+				continue
+			}
+
+			x := 0
+
+			for _, n := range tile.Neighbours {
+				if n == nil {
+					invalid++
+					x++
+				}
+			}
+
+			if x > 0 {
+				tile.Mark = '0' + byte(x)
+			}
+		}
+	}
+
+	if invalid > 0 {
+		fmt.Printf("Invalid: %d\nMap:\n%s\n", invalid, m)
+		panic("invalid map")
+	}
+}
+
+func BuildMap(lines []string) (*Map, *Tile) {
 	maxLen := 0
 
 	for _, line := range lines {
@@ -84,12 +172,10 @@ func BuildMap(lines []string) (Map, *Tile) {
 	}
 
 	tiles := make([][]*Tile, 0, len(lines))
-	bottom := make([]*Tile, maxLen)
 	var start *Tile
 
 	// TODO: Refactor this; it's too nested and messy
 	for r, line := range lines {
-		var first, last *Tile
 		row := make([]*Tile, maxLen)
 
 		for i, char := range line {
@@ -102,70 +188,10 @@ func BuildMap(lines []string) (Map, *Tile) {
 			} else if char == '#' {
 				row[i] = &Tile{Row: r, Col: i, Wall: true}
 			}
-
-			if row[i] != nil {
-				if first == nil {
-					first = row[i]
-				}
-
-				bottom[i] = row[i]
-
-				if last != nil {
-					last.Neighbours[Right] = row[i]
-					row[i].Neighbours[Left] = last
-				}
-			} else {
-				if last != nil {
-					last.Neighbours[Right] = first
-					first.Neighbours[Left] = last
-				}
-			}
-
-			last = row[i]
-		}
-
-		if last != nil {
-			last.Neighbours[Right] = first
-			first.Neighbours[Left] = last
 		}
 
 		tiles = append(tiles, row)
 	}
 
-	prev := make([]*Tile, maxLen)
-
-	for _, row := range tiles {
-		for i, tile := range row {
-			if tile != nil {
-				if prev[i] == nil {
-					bottom[i].Neighbours[Down] = tile
-					tile.Neighbours[Up] = bottom[i]
-				} else {
-					prev[i].Neighbours[Down] = tile
-					tile.Neighbours[Up] = prev[i]
-				}
-			}
-		}
-
-		prev = row
-	}
-
-	invalid := 0
-
-	for x := 0; x < len(tiles); x++ {
-		for y := 0; y < len(tiles[x]); y++ {
-			if tiles[x][y] == nil {
-				continue
-			}
-			for _, n := range tiles[x][y].Neighbours {
-				if n == nil {
-					invalid++
-				}
-			}
-		}
-	}
-
-	fmt.Printf("Invalid: %d\n", invalid)
-
-	return tiles, start
+	return &Map{tiles}, start
 }

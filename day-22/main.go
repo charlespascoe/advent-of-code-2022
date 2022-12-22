@@ -24,6 +24,7 @@ func main() {
 	}
 
 	m, start := BuildMap(lines)
+	m.LinkFlat()
 	tile := start
 
 	dir := Right
