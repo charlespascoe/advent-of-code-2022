@@ -112,7 +112,7 @@ type ResourceCount struct {
 
 type Blueprint struct {
 	Number int
-	Costs  map[Resource]Resources
+	Costs  [4]Resources
 }
 
 var blueprintRe = regexp.MustCompile(`^Blueprint (\d+):`)
@@ -124,7 +124,7 @@ var (
 
 func ParseBlueprint(str string) Blueprint {
 	blueprint := Blueprint{
-		Costs: make(map[Resource]Resources),
+		// Costs: make(map[Resource]Resources),
 	}
 
 	match := blueprintRe.FindStringSubmatch(str)

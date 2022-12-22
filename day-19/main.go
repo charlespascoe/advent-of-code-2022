@@ -6,12 +6,14 @@ import (
 	"log"
 	"os"
 	"strings"
+	"sync"
 )
 
 var verbosity = flag.Int("v", 0, "verbose output")
 
 func main() {
 	input := flag.String("i", "input.txt", "program input")
+	part2 := flag.Bool("part2", false, "print part 2 solution")
 	flag.Parse()
 
 	blueprints, err := readInput(*input)
@@ -20,23 +22,80 @@ func main() {
 	}
 
 	// fmt.Printf("Blueprints: %v\n", blueprints)
+	if *part2 {
+		solvePart2(blueprints)
+	} else {
+		solvePart1(blueprints)
+	}
+}
+
+func solvePart1(blueprints []Blueprint) {
 	result := 0
 
+	var wg sync.WaitGroup
+	c := make(chan int)
+
 	for _, blueprint := range blueprints {
-		sim := NewSimulator(blueprint)
+		wg.Add(1)
 
-		schedule, finalState := sim.solve()
+		go func(sim *Simulator) {
+			defer wg.Done()
 
-		schedule.print()
+			finalState := sim.solve3()
 
-		fmt.Printf("Optimal Build Schedule: %s\n", schedule)
-		fmt.Printf("Final State: %s\n", finalState)
+			fmt.Printf("Final State: %s\n", finalState)
 
-		geodes := finalState.resources[GeodeResource]
-		score := blueprint.Number * geodes
-		fmt.Printf("Blueprint %d geodes: %d, quality score: %d\n", blueprint.Number, geodes, score)
+			geodes := finalState.resources[GeodeResource]
+			score := sim.blueprint.Number * geodes
+			fmt.Printf("Blueprint %d geodes: %d, quality score: %d\n", sim.blueprint.Number, geodes, score)
 
-		result += score
+			c <- score
+		}(NewSimulator(blueprint, 24))
+	}
+
+	go func() {
+		wg.Wait()
+		close(c)
+	}()
+
+	for val := range c {
+		result += val
+	}
+
+	fmt.Printf("\nResult: %d\n", result)
+}
+
+func solvePart2(blueprints []Blueprint) {
+	result := 1
+
+	var wg sync.WaitGroup
+	c := make(chan int)
+
+	for _, blueprint := range blueprints[:3] {
+		wg.Add(1)
+
+		go func(sim *Simulator) {
+			defer wg.Done()
+
+			finalState := sim.solve3()
+
+			fmt.Printf("Final State: %s\n", finalState)
+
+			geodes := finalState.resources[GeodeResource]
+			// score := sim.blueprint.Number * geodes
+			fmt.Printf("Blueprint %d geodes: %d\n", sim.blueprint.Number, geodes)
+
+			c <- geodes
+		}(NewSimulator(blueprint, 32))
+	}
+
+	go func() {
+		wg.Wait()
+		close(c)
+	}()
+
+	for val := range c {
+		result *= val
 	}
 
 	fmt.Printf("\nResult: %d\n", result)
