@@ -6,578 +6,198 @@ import (
 
 const MaxInt64 = 0x7fffffffffffffff
 
-type BuildSchedule struct {
-	Blueprint *Blueprint
-	Robot     Resource
-	Next      *BuildSchedule
-	Prev      *BuildSchedule
-}
-
-func (sch *BuildSchedule) Cost() Resources {
-	return sch.Blueprint.Costs[sch.Robot]
-}
-
-func (sch *BuildSchedule) InsertBefore(robot Resource) *BuildSchedule {
-	prev := &BuildSchedule{
-		Blueprint: sch.Blueprint,
-		Robot:     robot,
-		Next:      sch,
-		Prev:      sch.Prev,
-	}
-
-	if sch.Prev != nil {
-		sch.Prev.Next = prev
-	}
-
-	sch.Prev = prev
-
-	return prev
-}
-
-func (sch *BuildSchedule) Pop() {
-	if sch.Prev != nil {
-		sch.Prev.Next = sch.Next
-	}
-
-	if sch.Next != nil {
-		sch.Next.Prev = sch.Prev
-	}
-}
-
-func (sch *BuildSchedule) Copy() *BuildSchedule {
-	// cp := new(BuildSchedule)
-	// *cp = *sch
-	out := sch.copyNode()
-
-	next := out
-	node := out.Prev.copyNode()
-
-	for node != nil {
-		node.Next = next
-		next.Prev = node
-		node = node.Prev
-	}
-
-	prev := out
-	node = out.Next.copyNode()
-
-	for node != nil {
-		node.Prev = prev
-		prev.Next = node
-		node = node.Next
-	}
-
-	return out
-}
-
-func (sch *BuildSchedule) copyNode() *BuildSchedule {
-	if sch == nil {
-		return nil
-	}
-
-	cp := new(BuildSchedule)
-	*cp = *sch
-	return cp
-}
-
-type Robot struct {
-	blueprint *Blueprint
-	Resource  Resource
-	Prev      *Robot
-}
-
-func (robot *Robot) Cost() Resources {
-	return robot.blueprint.Costs[robot.Resource]
-}
-
-func (robot *Robot) BuildSchedule() []Resource {
-	if robot == nil {
-		return nil
-	}
-
-	return append(robot.Prev.BuildSchedule(), robot.Resource)
-}
-
-func (robot *Robot) BuildScheduleRobots() []*Robot {
-	if robot == nil {
-		return nil
-	}
-
-	return append(robot.Prev.BuildScheduleRobots(), robot)
-}
-
-// func (sch *BuildSchedule) PopPrevious() {
-// 	if sch.Prev == nil {
-// 		panic("nothing before")
-// 	}
-
-// 	sch.Prev = sch.Prev.Prev
-
-// 	if sch.Prev != nil {
-// 		sch.Prev.Next = sch
-// 	}
-// }
-
-func (sch *BuildSchedule) Head() *BuildSchedule {
-	if sch.Prev == nil {
-		return sch
-	} else {
-		return sch.Prev.Head()
-	}
-}
-
-func (sch *BuildSchedule) String() string {
-	if sch == nil {
-		return ""
-	}
-
-	return fmt.Sprintf("%s, %s", sch.Robot, sch.Next)
-}
-
-// func InitialBuildSchedule(blueprint *Blueprint) *BuildSchedule {
-// 	var head *BuildSchedule
-// 	var prev *BuildSchedule
-
-// 	// The [1:] is to skip "ore", as we always start with an ore miner
-// 	for _, resource := range resources[1:] {
-// 		sch := &BuildSchedule{
-// 			Blueprint: blueprint,
-// 			Robot:     resource,
-// 			Best:      MaxInt64,
-// 		}
-
-// 		if head == nil {
-// 			head = sch
-// 		} else {
-// 			sch.Prev = prev
-// 			prev.Next = sch
-// 		}
-
-// 		prev = sch
-// 	}
-
-// 	return head
-// }
-
 type Simulator struct {
 	blueprint Blueprint
-	schedule  *BuildSchedule
 }
 
 func NewSimulator(blueprint Blueprint) *Simulator {
 	return &Simulator{
 		blueprint: blueprint,
-		// schedule:  InitialBuildSchedule(&blueprint),
 	}
 }
 
-func (sim *Simulator) solve() {
-	init := NewSimState()
-	state := init
+func (sim *Simulator) solve() (*BuildStep, SimState) {
+	schedule := InitialBuildStep()
 
-	// fmt.Printf("Initial Schedule: %s\n\n", init.nextRobot)
-
-	// for state.nextRobot != nil {
-	// for state.time < 24 {
-	// 	if state.nextRobot.Next == nil {
-	// 		state.nextRobot.Next = &BuildSchedule{
-	// 			Blueprint: &sim.blueprint,
-	// 			Robot:     GeodeResource,
-	// 			Prev:      state.nextRobot,
-	// 		}
-	// 	}
-
-	// 	vprintf(2, "\n============\nStart Time: %d, Next Robot: %s\n", state.time, state.nextRobot.Robot)
-
-	// 	state = sim.optimiseStep(state)
-
-	// 	// state = sim.simUntil(state, state.nextRobot.Next)
-	// }
-
-	var robot *Robot
-
+	// Find the optimal path to the first of each robot (excluding an ore miner,
+	// as we already start with one). optimiseStep() will add any intermediate
+	// robots required to build the given robot as quickly as possible.
 	for _, resource := range resources[1:] {
-		robot = sim.newRobot(resource, robot)
-		fmt.Printf("Chain (before): %s\n", robot.BuildSchedule())
-		state = sim.optimiseStep(state.NextRobot(robot), 24)
-		fmt.Printf("Chain (after): %s\n", robot.BuildSchedule())
+		schedule = sim.optimiseStep(schedule, resource)
 	}
 
-	for state.time < 24 {
-		robot = sim.newRobot(GeodeResource, robot)
-		fmt.Printf("Chain (before): %s\n", robot.BuildSchedule())
-		state = sim.optimiseStep(state.NextRobot(robot), 24)
-		fmt.Printf("Chain (after): %s\n", robot.BuildSchedule())
+	// Use remaining time to optimially build as many geode miner robots as
+	// possible
+	for schedule.State.time < 24 {
+		schedule = sim.optimiseStep(schedule, GeodeResource)
 	}
 
-	fmt.Printf("State: %v\n", state)
-	fmt.Printf("Final Schedule: %s\n", state.nextRobot.BuildSchedule())
+	for schedule.State.time > 24 {
+		// The last state ih the schedule has time >= 24, which is too late to
+		// have any effect on the result, so pop it
+		schedule = schedule.Prev
+	}
 
-	// robot = state.nextRobot
-	state = init
-	fmt.Printf("\n\n\nStart: %s\n", state)
-	for _, rbt := range robot.BuildScheduleRobots() {
-		fmt.Printf("ROBOT %s\n", rbt.Resource)
-		state.nextRobot = rbt
-		for state.nextRobot != nil && state.time < 24 {
-			state = sim.step(state)
-			fmt.Println(state.String())
-		}
+	// Pop step 0 (time == 0, the initial ore miner we already had)
+	// schedule = schedule[1:]
+
+	finalState := schedule.State
+
+	// Simulate final state for resource counts
+	finalState = sim.simulateTime(finalState, 24-finalState.time)
+
+	return schedule, finalState
+}
+
+type BuildStep struct {
+	Robot Resource
+	State SimState
+	Prev  *BuildStep
+}
+
+func InitialBuildStep() *BuildStep {
+	return &BuildStep{
+		Robot: OreResource,
+		State: SimState{
+			robots: Resources{
+				OreResource: 1,
+			},
+		},
 	}
 }
 
-// func (sim *Simulator) optimiseStep(start SimState, mustBeat int) SimState {
-// 	// prevBest := step.Best
+func (step *BuildStep) String() string {
+	if step.Prev == nil {
+		return step.Robot.String()
+	} else {
+		return fmt.Sprintf("%s, %s", step.Prev, step.Robot)
+	}
+}
 
-// 	nextRobot := start.nextRobot
-// 	state := sim.simUntil(start, nextRobot)
+func (step *BuildStep) print() {
+	if step.Prev != nil {
+		step.Prev.print()
+	}
 
-// 	bestState := start
-// 	best := state.time
-// 	vprintf(3, "BEST state: %v, BEST Seq: %s\n", state, start.nextRobot.Head())
-
-// 	if best >= mustBeat {
-// 		return state
-// 	}
-
-// 	count := 0
-
-// 	for count < 3 {
-// 		diff := nextRobot.Cost().Sub(state.prevResources)
-// 		critRes := diff.ZeroValues()
-
-// 		vprintf(3, "Resources: %v, Cost: %v, Critical: %v (diff: %v)\n", state.resources, nextRobot.Cost(), critRes, diff)
-
-// 		if len(critRes) == 0 {
-// 			break
-// 		}
-
-// 		improved := bestState
-// 		inserted := nextRobot.InsertBefore(critRes[0])
-
-// 		if improved.nextRobot == nextRobot {
-// 			improved.nextRobot = inserted
-// 		}
-
-// 		vprintf(3, "Improved: %v\n", improved)
-// 		improved = sim.optimiseStep(improved, best)
-// 		state = sim.simUntil(improved, nextRobot)
-// 		vprintf(3, "Inserted %s (now %s), Best Time: %d, Run Time: %d\n", critRes[0], nextRobot.Head(), best, state.time)
-// 		vprintf(3, "Out State: %v\n", state)
-
-// 		if state.time <= best {
-// 			best = state.time
-// 			bestState = improved
-// 		} else {
-// 			nextRobot.PopPrevious()
-// 		}
-
-// 		// count++
-// 	}
-
-// 	// if count >= 3 {
-// 	// 	vprintf(3, "HAD TO STOP\n")
-// 	// }
-
-// 	vprintf(3, "\n")
-
-// 	return sim.simUntil(bestState, bestState.nextRobot)
-// }
+	fmt.Printf("=== Time %d ===\n", step.State.time)
+	fmt.Printf("Resources: %s\n", step.State.resources)
+	fmt.Printf("Robots: %s\n", step.State.robots)
+	fmt.Printf("Just got %s robot\n", step.Robot)
+	fmt.Println()
+}
 
 var counter = 0
 
-func (sim *Simulator) optimiseStep(state SimState, mustBeat int) SimState {
-	counter++
-	x := counter
-	defer func() {
-		counter--
-	}()
-	fmt.Printf("\n\n=== OPTIMISE %d at %d %v\n", x, state.time, state.nextRobot.BuildSchedule())
-	defer fmt.Printf("\n\n=== END OPTIMISE %d: %v\n", x, state.nextRobot.BuildSchedule())
-	start := state
-	nextRobot := start.nextRobot
-	end := sim.simUntil2(start)
-	var newRobot *Robot
+func (sim *Simulator) optimiseStep(schedule *BuildStep, robot Resource) *BuildStep {
+	bestSch := schedule
+	endState, gatherTime := sim.buildNextRobot(schedule.State, robot)
 
-	if end.time > mustBeat {
-		return end
-	}
+	maxTime := gatherTime.Max()
 
-	// =======================================================//
-	//       THIS IS THE PROBLEM! FIX THIS FIRST!             //
-	// You need a better way of determining which resources   //
-	// Are the bottleneck                                     //
-	// TODO: instead of using "step" method, calculate the    //
-	// time at which each required resource will become       //
-	// available at the current rate of production
-	// critRes := nextRobot.Cost().EqualValues(end.prevResources)
-	// =======================================================//
-	// vprintf(3, "Critical Resources for %s robot: %s, Cost: %s, Resources: %s\n", nextRobot.Resource, critRes, nextRobot.Cost(), end.prevResources)
-	vprintf(3, "Critical Resources for %s robot: %s, Cost: %s, Resources: %s\n", nextRobot.Resource, end.missingResources, nextRobot.Cost(), end.prevResources)
+	for r, count := range gatherTime {
+		resource := Resource(r)
 
-	for r, count := range end.missingResources {
-		if count == 0 {
+		if count < maxTime || resource == robot {
+			// Either it's not on the critical path (count < maxTime) or it
+			// would try to build the same robot (e.g. ore as a critical
+			// resource for an ore miner)
 			continue
 		}
 
-		resource := Resource(r)
-		robot := sim.newRobot(resource, nextRobot.Prev)
-		fmt.Printf("SEQ1: %v\n", robot.BuildSchedule())
+		// Note we're using the original build schedule - we're only
+		// applying one change at a time
+		sch := sim.optimiseStep(schedule, resource)
 
-		// Note we're using the original state - we're only applying one change
-		// at a time
-		intermediate := sim.optimiseStep(state.NextRobot(robot), end.time).NextRobot(nextRobot)
-		if intermediate.time > end.time {
+		if sch.State.time > endState.time {
 			// Getting to this intermediate robot ends up taking even more time,
 			// so skip it
 			continue
 		}
-		fmt.Printf("SEQ1A: %v\n", intermediate.nextRobot.BuildSchedule())
 
-		result := sim.simUntil2(intermediate)
+		result, _ := sim.buildNextRobot(sch.State, robot)
 
-		if result.time <= end.time {
-			newRobot = robot
-			start = intermediate
-			end = result
+		// If result.time == end.time, it implies that we've improved this
+		// resource (because we built a new robot without extending the build
+		// time for this robot), but another resource has the same critical path
+		// length.
+		if result.time <= endState.time {
+			bestSch = sch
+			endState = result
 		}
 	}
 
-	if newRobot != nil && newRobot != nextRobot {
-		fmt.Printf("\033[32m+++ Built %s robot at time %d\033[0m\n", newRobot.Resource, start.time)
+	if bestSch != schedule {
+		// New optimal build step inserted; we now need to optimise between this
+		// new intermediate robot and the target robot
+		return sim.optimiseStep(bestSch, robot)
+	}
 
-		fmt.Printf("SEQ2: %v\n", newRobot.BuildSchedule())
-		fmt.Printf("SEQ3: %v\n", nextRobot.BuildSchedule())
-		nextRobot.Prev = newRobot
-		fmt.Printf("SEQ4: %v\n", nextRobot.BuildSchedule())
-		// fmt.Printf("SEQ4: %v\n", start.nextRobot.BuildSchedule())
+	// No other insertion was able to provide a better time than the current
+	// schedule; the given robot is therefore the optimal next step
+	return &BuildStep{
+		Robot: robot,
+		State: endState,
+		Prev:  schedule,
+	}
+}
 
-		abc := sim.optimiseStep(start, end.time)
-		if abc.time <= end.time {
-			fmt.Println("BETTERR!")
-			end = abc
-		} else {
-			fmt.Println("WORSE!")
+func (sim *Simulator) buildNextRobot(state SimState, robot Resource) (final SimState, gatherTime Resources) {
+	cost := sim.robotCost(robot)
+	maxWait := 0
+
+	for resource, count := range cost {
+		if count == 0 {
+			continue
 		}
+
+		gatherTime[resource] = CeilDiv(count, state.robots[resource])
+
+		maxWait = Max(maxWait, gatherTime[resource])
 	}
 
-	fmt.Printf("\033[32m+++ Built %s robot at time %d\033[0m\n", nextRobot.Resource, end.time)
-	return end
+	// Add one minute to build the robot
+	final = sim.simulateTime(state, maxWait+1)
+	final.resources = final.resources.Sub(cost)
+	final.robots[robot]++
+
+	return
 }
 
-func (sim *Simulator) newRobot(resource Resource, prev *Robot) *Robot {
-	return &Robot{
-		Resource:  resource,
-		Prev:      prev,
-		blueprint: &sim.blueprint,
-	}
-}
-
-func (sim *Simulator) simUntil2(state SimState) SimState {
-	for state.nextRobot != nil && state.time < 24 {
-		state = sim.step(state)
-	}
-
+func (sim *Simulator) simulateTime(state SimState, dur int) SimState {
+	state.time += dur
+	state.resources = state.resources.Add(state.robots.Multiply(dur))
 	return state
 }
 
-// func (sim *Simulator) simUntil(state SimState, nextRobot *BuildSchedule) SimState {
-func (sim *Simulator) simUntil(state SimState, nextRobot *Robot) SimState {
-	panic("Not implemented")
-	for state.nextRobot != nextRobot && state.time < 24 {
-		vprintf(3, "Looking for next robot!\n")
-		state = sim.step(state)
-	}
-
-	if nextRobot != nil {
-		for state.nextRobot == nextRobot && state.time < 24 {
-			vprintf(3, "Looking for AFTER robot!\n")
-			state = sim.step(state)
-		}
-	}
-
-	// Stop just after building the robot
-
-	return state
+func (sim *Simulator) robotCost(robot Resource) Resources {
+	return sim.blueprint.Costs[robot]
 }
-
-// func (sim *Simulator) BestSolution() (Solution, int) {
-//	best := sim.solution.Copy()
-//	geodes := sim.resources["geode"]
-
-//	vprintf(2, "\nStart\n\n")
-
-//	for {
-//		sim.RunIteration()
-//		vprintf(2, "Resources: %v\n", sim.resources)
-
-//		if g := sim.resources["geode"]; g > geodes {
-//			best = sim.solution.Copy()
-//			geodes = g
-//		}
-
-//		if !sim.Improve() {
-//			break
-//		}
-//	}
-
-//	return best, geodes
-//}
-
-// func (sim *Simulator) Improve() bool {
-// 	if next, ok := sim.schedule.Next(); ok {
-// 		cost := sim.blueprint.Costs[next]
-
-// 		missing := cost.Sub(sim.resources).AsSlice()
-// 		vprintf(2, "Unable to build %s robot, missing: %v\n", next, missing)
-
-// 		if missing[0].Count < 0 {
-// 			vprintf(2, "Count is negative; we have the resources, but not enough time\n")
-// 			return false
-// 		}
-
-// 		sim.solution[missing[0].Resource]++
-// 	} else {
-// 		vprintf(2, "End of schedule, adding geode miner\n")
-// 		sim.solution["geode"]++
-// 	}
-
-// 	vprintf(2, "Next Iteration Robots: %v\n\n", sim.solution)
-
-// 	return true
-// }
-
-// func (sim *Simulator) RunIteration() {
-//	sim.reset()
-
-//	for sim.time < 24 {
-//		sim.Step()
-//	}
-//}
-
-func (sim *Simulator) step(state SimState) SimState {
-	state.time++
-
-	state.prevResources = state.resources
-
-	newRobot := false
-
-	missingResources := state.nextRobot.Cost().Sub(state.resources).Min(0)
-	fmt.Printf("MISSING: %s\n", missingResources)
-
-	// if state.nextRobot != nil && state.haveResources(state.nextRobot.Cost()) {
-	if missingResources.AllZero() {
-		newRobot = true
-	} else {
-		state.missingResources = missingResources
-	}
-
-	state = state.mineResources()
-
-	vprintf(4, "Time: %d\n", state.time)
-
-	if newRobot {
-		state = state.consumeResources(state.nextRobot.Cost())
-		state.robots[state.nextRobot.Resource]++
-		vprintf(4, "\t++ Built %s robot ++\n", state.nextRobot.Resource)
-		// state.nextRobot = state.nextRobot.Next
-		state.nextRobot = nil
-	}
-
-	vprintf(4, "\tResources:\n\t\t%v\n\tRobots:\n\t\t%v\n\n", state.resources, state.robots)
-
-	return state
-}
-
-// func (sim *Simulator) buildRobot() (Resource, Cost, bool) {
-//	// Refactor this something along the lines of:
-//	//
-//	//   - Start with a really bad solution, e.g. make one robot of each
-//	//     required type, and calculate how long it would take to build the
-//	//     desired robot
-//	//   - Find the resource that is needed the most and increase its robot
-//	//     count by one
-//	//   - Recalculate solution to see if it reduces the time (always prioritise
-//	//     building the simplest types first)
-//	//   - Repeat until you have an optimal solution
-
-//	if sim.nextRobot != nil {
-//		next := sim.nextRobot.Robot
-//		cost := sim.blueprint.Costs[next]
-
-//		if sim.haveResources(cost) {
-//			sim.consumeResources(cost)
-//			sim.nextRobot = sim.nextRobot.Next
-//			return next, true
-//		}
-//	}
-
-//	return "", false
-//}
-
-// func (sim *Simulator) reset() {
-// 	sim.time = 0
-// 	sim.nextRobot = sim.schedule
-// 	sim.resources = make(map[Resource]int)
-// 	sim.robots = map[Resource]int{
-// 		"ore": 1,
-// 	}
-// }
 
 type SimState struct {
-	time int
-	// nextRobot *BuildSchedule
-	nextRobot *Robot
+	time      int
 	resources Resources
 	robots    Resources
-
-	// TODO: Get rid of this
-	prevResources Resources
-	missingResources Resources
-}
-
-func NewSimState() SimState {
-	return SimState{
-		// nextRobot: InitialBuildSchedule(blueprint),
-		robots: Resources{
-			OreResource: 1,
-		},
-	}
 }
 
 func (state SimState) String() string {
 	return fmt.Sprintf("Time: %d, Resources: %v, Robots: %v", state.time, state.resources, state.robots)
 }
 
-func (state SimState) NextRobot(robot *Robot) SimState {
-	state.nextRobot = robot
-	return state
+func Max(a, b int) int {
+	if a > b {
+		return a
+	} else {
+		return b
+	}
 }
 
-// func (state SimState) haveResources(cost Resources) bool {
-// 	for resource, count := range cost {
-// 		if state.resources[resource] < count {
-// 			return false
-// 		}
-// 	}
+func CeilDiv(a, b int) int {
+	c := a / b
 
-// 	return true
-// }
-
-func (state SimState) consumeResources(cost Resources) SimState {
-	for resource, count := range cost {
-		state.resources[resource] -= count
+	if a%b != 0 {
+		// Non-zero remainer, so round up
+		c++
 	}
 
-	return state
-}
-
-func (state SimState) mineResources() SimState {
-	for resource, robots := range state.robots {
-		// map[] is a reference type, so this works despite not using a pointer
-		// receiver
-		state.resources[resource] += robots
-	}
-
-	return state
+	return c
 }

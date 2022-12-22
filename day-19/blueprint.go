@@ -47,58 +47,41 @@ func (res Resources) String() string {
 	return str.String()
 }
 
+func (res Resources) Multiply(scalar int) Resources {
+	for i := range res {
+		res[i] *= scalar
+	}
+
+	return res
+}
+
+func (res Resources) Add(other Resources) Resources {
+	for i := range res {
+		res[i] += other[i]
+	}
+
+	return res
+}
+
 func (res Resources) Sub(other Resources) Resources {
-	var out Resources
-
-	for resource, count := range res {
-		out[resource] = count - other[resource]
+	for i := range res {
+		res[i] -= other[i]
 	}
 
-	return out
+	return res
 }
 
-func (res Resources) Min(val int) Resources {
-	var out Resources
+func (res Resources) Max() int {
+	max := 0
 
-	for resource, count := range res {
-		if count < val {
-			out[resource] = val
-		} else {
-			out[resource] = count
-		}
-	}
-
-	return out
-}
-
-func (res Resources) AllZero() bool {
 	for _, count := range res {
-		if count != 0 {
-			return false
+		if count > max {
+			max = count
 		}
 	}
 
-	return true
+	return max
 }
-
-func (res Resources) EqualValues(other Resources) []Resource {
-	var out []Resource
-
-	for resource, count := range res {
-		if count > 0 && count == other[resource] {
-			out = append(out, Resource(resource))
-		}
-	}
-
-	return out
-}
-
-// var resources = []Resource{
-// 	"ore",
-// 	"clay",
-// 	"obsidian",
-// 	"geode",
-// }
 
 var resources = []Resource{
 	OreResource,
@@ -122,33 +105,6 @@ func ParseResource(str string) Resource {
 	}
 }
 
-// type Cost map[Resource]int
-
-// func (cost Cost) Sub(other map[Resource]int) Cost {
-// 	res := make(Cost, len(resources))
-
-// 	for resource, count := range cost {
-// 		res[resource] = count - other[resource]
-// 	}
-
-// 	return res
-// }
-
-// func AsSlice(res map[Resource]int) []ResourceCount {
-// 	slice := make([]ResourceCount, 0, len(res))
-
-// 	for resource, count := range res {
-// 		slice = append(slice, ResourceCount{resource, count})
-// 	}
-
-// 	// Sort largest first
-// 	sort.Slice(slice, func(i, j int) bool {
-// 		return slice[i].Count > slice[j].Count
-// 	})
-
-// 	return slice
-// }
-
 type ResourceCount struct {
 	Resource Resource
 	Count    int
@@ -157,14 +113,8 @@ type ResourceCount struct {
 type Blueprint struct {
 	Number int
 	Costs  map[Resource]Resources
-	// OreRobot      RobotCost
-	// ClayRobot     RobotCost
-	// ObsidianRobot RobotCost
-	// GeodeRobot    RobotCost
 }
 
-// I mean, it's simple and it works, so why not?
-// var blueprintRe = regexp.MustCompile(`^Blueprint (\d+): Each ore robot costs (\d+) ore. Each clay robot costs (\d+) ore. Each obsidian robot costs (\d+) ore and (\d+) clay. Each geode robot costs (\d+) ore and (\d+) obsidian.$`)
 var blueprintRe = regexp.MustCompile(`^Blueprint (\d+):`)
 
 var (

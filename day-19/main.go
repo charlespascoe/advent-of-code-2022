@@ -19,14 +19,17 @@ func main() {
 		log.Fatalf("Couldn't read input file: %s", err)
 	}
 
-	fmt.Printf("Blueprints: %v\n", blueprints)
+	// fmt.Printf("Blueprints: %v\n", blueprints)
 
 	for _, blueprint := range blueprints {
 		sim := NewSimulator(blueprint)
 
-		// _, geodes := sim.BestSolution()
-		sim.solve()
+		schedule, finalState := sim.solve()
 
+		schedule.print()
+
+		fmt.Printf("Optimal Build Schedule: %s\n", schedule)
+		fmt.Printf("Final State: %s\n", finalState)
 		// fmt.Printf("Robots: %v\n", sim.robots)
 		// fmt.Printf("Resources: %v\n", sim.resources)
 		// fmt.Println()
