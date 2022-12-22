@@ -98,6 +98,14 @@ func (robot *Robot) BuildSchedule() []Resource {
 	return append(robot.Prev.BuildSchedule(), robot.Resource)
 }
 
+func (robot *Robot) BuildScheduleRobots() []*Robot {
+	if robot == nil {
+		return nil
+	}
+
+	return append(robot.Prev.BuildScheduleRobots(), robot)
+}
+
 // func (sch *BuildSchedule) PopPrevious() {
 // 	if sch.Prev == nil {
 // 		panic("nothing before")
@@ -204,6 +212,18 @@ func (sim *Simulator) solve() {
 
 	fmt.Printf("State: %v\n", state)
 	fmt.Printf("Final Schedule: %s\n", state.nextRobot.BuildSchedule())
+
+	// robot = state.nextRobot
+	state = init
+	fmt.Printf("\n\n\nStart: %s\n", state)
+	for _, rbt := range robot.BuildScheduleRobots() {
+		fmt.Printf("ROBOT %s\n", rbt.Resource)
+		state.nextRobot = rbt
+		for state.nextRobot != nil && state.time < 24 {
+			state = sim.step(state)
+			fmt.Println(state.String())
+		}
+	}
 }
 
 // func (sim *Simulator) optimiseStep(start SimState, mustBeat int) SimState {
@@ -272,7 +292,7 @@ func (sim *Simulator) optimiseStep(state SimState, mustBeat int) SimState {
 	defer func() {
 		counter--
 	}()
-	fmt.Printf("\n\n=== OPTIMISE %d: %v\n", x, state.nextRobot.BuildSchedule())
+	fmt.Printf("\n\n=== OPTIMISE %d at %d %v\n", x, state.time, state.nextRobot.BuildSchedule())
 	defer fmt.Printf("\n\n=== END OPTIMISE %d: %v\n", x, state.nextRobot.BuildSchedule())
 	start := state
 	nextRobot := start.nextRobot
@@ -283,10 +303,24 @@ func (sim *Simulator) optimiseStep(state SimState, mustBeat int) SimState {
 		return end
 	}
 
-	critRes := nextRobot.Cost().EqualValues(end.prevResources)
-	vprintf(3, "Critical Resources for %s robot: %s, Cost: %s, Resources: %s\n", nextRobot.Resource, critRes, nextRobot.Cost(), end.prevResources)
+	// =======================================================//
+	//       THIS IS THE PROBLEM! FIX THIS FIRST!             //
+	// You need a better way of determining which resources   //
+	// Are the bottleneck                                     //
+	// TODO: instead of using "step" method, calculate the    //
+	// time at which each required resource will become       //
+	// available at the current rate of production
+	// critRes := nextRobot.Cost().EqualValues(end.prevResources)
+	// =======================================================//
+	// vprintf(3, "Critical Resources for %s robot: %s, Cost: %s, Resources: %s\n", nextRobot.Resource, critRes, nextRobot.Cost(), end.prevResources)
+	vprintf(3, "Critical Resources for %s robot: %s, Cost: %s, Resources: %s\n", nextRobot.Resource, end.missingResources, nextRobot.Cost(), end.prevResources)
 
-	for _, resource := range critRes {
+	for r, count := range end.missingResources {
+		if count == 0 {
+			continue
+		}
+
+		resource := Resource(r)
 		robot := sim.newRobot(resource, nextRobot.Prev)
 		fmt.Printf("SEQ1: %v\n", robot.BuildSchedule())
 
@@ -310,6 +344,8 @@ func (sim *Simulator) optimiseStep(state SimState, mustBeat int) SimState {
 	}
 
 	if newRobot != nil && newRobot != nextRobot {
+		fmt.Printf("\033[32m+++ Built %s robot at time %d\033[0m\n", newRobot.Resource, start.time)
+
 		fmt.Printf("SEQ2: %v\n", newRobot.BuildSchedule())
 		fmt.Printf("SEQ3: %v\n", nextRobot.BuildSchedule())
 		nextRobot.Prev = newRobot
@@ -325,6 +361,7 @@ func (sim *Simulator) optimiseStep(state SimState, mustBeat int) SimState {
 		}
 	}
 
+	fmt.Printf("\033[32m+++ Built %s robot at time %d\033[0m\n", nextRobot.Resource, end.time)
 	return end
 }
 
@@ -337,7 +374,7 @@ func (sim *Simulator) newRobot(resource Resource, prev *Robot) *Robot {
 }
 
 func (sim *Simulator) simUntil2(state SimState) SimState {
-	for state.nextRobot != nil {
+	for state.nextRobot != nil && state.time < 24 {
 		state = sim.step(state)
 	}
 
@@ -425,8 +462,14 @@ func (sim *Simulator) step(state SimState) SimState {
 
 	newRobot := false
 
-	if state.nextRobot != nil && state.haveResources(state.nextRobot.Cost()) {
+	missingResources := state.nextRobot.Cost().Sub(state.resources).Min(0)
+	fmt.Printf("MISSING: %s\n", missingResources)
+
+	// if state.nextRobot != nil && state.haveResources(state.nextRobot.Cost()) {
+	if missingResources.AllZero() {
 		newRobot = true
+	} else {
+		state.missingResources = missingResources
 	}
 
 	state = state.mineResources()
@@ -490,6 +533,7 @@ type SimState struct {
 
 	// TODO: Get rid of this
 	prevResources Resources
+	missingResources Resources
 }
 
 func NewSimState() SimState {
@@ -510,15 +554,15 @@ func (state SimState) NextRobot(robot *Robot) SimState {
 	return state
 }
 
-func (state SimState) haveResources(cost Resources) bool {
-	for resource, count := range cost {
-		if state.resources[resource] < count {
-			return false
-		}
-	}
+// func (state SimState) haveResources(cost Resources) bool {
+// 	for resource, count := range cost {
+// 		if state.resources[resource] < count {
+// 			return false
+// 		}
+// 	}
 
-	return true
-}
+// 	return true
+// }
 
 func (state SimState) consumeResources(cost Resources) SimState {
 	for resource, count := range cost {

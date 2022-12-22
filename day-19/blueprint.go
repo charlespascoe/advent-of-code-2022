@@ -57,6 +57,30 @@ func (res Resources) Sub(other Resources) Resources {
 	return out
 }
 
+func (res Resources) Min(val int) Resources {
+	var out Resources
+
+	for resource, count := range res {
+		if count < val {
+			out[resource] = val
+		} else {
+			out[resource] = count
+		}
+	}
+
+	return out
+}
+
+func (res Resources) AllZero() bool {
+	for _, count := range res {
+		if count != 0 {
+			return false
+		}
+	}
+
+	return true
+}
+
 func (res Resources) EqualValues(other Resources) []Resource {
 	var out []Resource
 
