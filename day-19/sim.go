@@ -26,11 +26,16 @@ func (sim *Simulator) solve() (*BuildStep, SimState) {
 		schedule = sim.optimiseStep(schedule, resource)
 	}
 
+	lastGeodeMiner := schedule
+
 	// Use remaining time to optimially build as many geode miner robots as
 	// possible
 	for schedule.State.time < 24 {
+		lastGeodeMiner = schedule
 		schedule = sim.optimiseStep(schedule, GeodeResource)
 	}
+
+	schedule = lastGeodeMiner
 
 	for schedule.State.time > 24 {
 		// The last state ih the schedule has time >= 24, which is too late to
@@ -97,10 +102,12 @@ func (sim *Simulator) optimiseStep(schedule *BuildStep, robot Resource) *BuildSt
 	for r, count := range gatherTime {
 		resource := Resource(r)
 
-		if count < maxTime || resource == robot {
-			// Either it's not on the critical path (count < maxTime) or it
-			// would try to build the same robot (e.g. ore as a critical
-			// resource for an ore miner)
+		if count == 0 || count < maxTime || resource == robot {
+			// Either:
+			//    1) We already have enough resources (count == 0)
+			//    2) it's not on the critical path (count < maxTime)
+			//    3) it would try to build the same robot (e.g. ore as a
+			//       critical resource for an ore miner)
 			continue
 		}
 
@@ -145,8 +152,10 @@ func (sim *Simulator) buildNextRobot(state SimState, robot Resource) (final SimS
 	cost := sim.robotCost(robot)
 	maxWait := 0
 
-	for resource, count := range cost {
-		if count == 0 {
+	missing := cost.Sub(state.resources)
+
+	for resource, count := range missing {
+		if count <= 0 {
 			continue
 		}
 

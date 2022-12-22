@@ -20,6 +20,7 @@ func main() {
 	}
 
 	// fmt.Printf("Blueprints: %v\n", blueprints)
+	result := 0
 
 	for _, blueprint := range blueprints {
 		sim := NewSimulator(blueprint)
@@ -30,13 +31,15 @@ func main() {
 
 		fmt.Printf("Optimal Build Schedule: %s\n", schedule)
 		fmt.Printf("Final State: %s\n", finalState)
-		// fmt.Printf("Robots: %v\n", sim.robots)
-		// fmt.Printf("Resources: %v\n", sim.resources)
-		// fmt.Println()
 
-		// fmt.Printf("\nBlueprint %d Geodes: %d\n", blueprint.Number, geodes)
-		break
+		geodes := finalState.resources[GeodeResource]
+		score := blueprint.Number * geodes
+		fmt.Printf("Blueprint %d geodes: %d, quality score: %d\n", blueprint.Number, geodes, score)
+
+		result += score
 	}
+
+	fmt.Printf("\nResult: %d\n", result)
 }
 
 func readInput(path string) ([]Blueprint, error) {
