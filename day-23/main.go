@@ -41,11 +41,13 @@ func main() {
 		round++
 
 		if round == 10 {
-			fmt.Printf("Empty tiles after %d rounds: %d\n", round, m.CountEmpty())
+			fmt.Printf("Empty tiles after %d rounds: %d\n", round, m.Empty())
 		}
 	}
 
 	fmt.Printf("Number of Rounds: %d\n", round)
+	width, height := m.Dimensions()
+	fmt.Printf("Size of Map: %d x %d = %d, %d empty\n", width, height, width*height, m.Empty())
 }
 
 func readLines(path string) ([]string, error) {
