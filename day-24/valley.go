@@ -44,23 +44,6 @@ func GetDirection(char rune) Direction {
 	}
 }
 
-type Vector struct {
-	// X moves right, Y moves down
-	X, Y int
-}
-
-func (v Vector) Add(other Vector) Vector {
-	return Vector{v.X + other.X, v.Y + other.Y}
-}
-
-func (v Vector) Mult(scalar int) Vector {
-	return Vector{v.X * scalar, v.Y * scalar}
-}
-
-func (v Vector) Mod(mod Vector) Vector {
-	return Vector{v.X % mod.X, v.Y % mod.Y}
-}
-
 type BlizzardSet struct {
 	start   [][]bool
 	invMove Vector
@@ -77,7 +60,7 @@ func NewBlizzardSet(dir Direction, rows, cols int) *BlizzardSet {
 	size := Vector{cols, rows}
 
 	// Multiplying by -1 inverts the direction
-	invMove := cardinalVectors[dir].Mult(-1).Add(size).Mod(size)
+	invMove := cardinalVectors[dir].Mult(-1)
 
 	return &BlizzardSet{
 		start:   start,
@@ -97,8 +80,8 @@ func (bls BlizzardSet) IsEmpty(pos Vector, time int) bool {
 }
 
 type Valley struct {
-	blizzards  [4]*BlizzardSet
-	size Vector
+	blizzards [4]*BlizzardSet
+	size      Vector
 }
 
 func NewValley(lines []string) *Valley {
@@ -137,7 +120,7 @@ func (val *Valley) IsEmpty(pos Vector, time int) bool {
 	return true
 }
 
-func (val *Valley) StringAtTime(time int) string {
+func (val *Valley) StringAtTimeWithElf(time int, elf Vector) string {
 	var str strings.Builder
 
 	for y := 0; y < val.size.Y; y++ {
@@ -146,6 +129,11 @@ func (val *Valley) StringAtTime(time int) string {
 		}
 
 		for x := 0; x < val.size.X; x++ {
+			if x == elf.X && y == elf.Y {
+				str.WriteRune('E')
+				continue
+			}
+
 			count := 0
 			dir := Up
 			for i, bl := range val.blizzards {
@@ -160,12 +148,16 @@ func (val *Valley) StringAtTime(time int) string {
 			} else if count == 1 {
 				str.WriteString(dirStrings[dir])
 			} else {
-				str.WriteByte('0'+byte(count))
+				str.WriteByte('0' + byte(count))
 			}
 		}
 	}
 
 	return str.String()
+}
+
+func (val *Valley) StringAtTime(time int) string {
+	return val.StringAtTimeWithElf(time, Vector{-1, -1})
 }
 
 func (val *Valley) String() string {

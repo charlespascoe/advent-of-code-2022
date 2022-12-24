@@ -25,6 +25,10 @@ func main() {
 	for i := 0; i < 10; i++ {
 		fmt.Printf("Valley at %d:\n%s\n\n", i, val.StringAtTime(i))
 	}
+
+	solver := NewSolver(val)
+
+	solver.Solve()
 }
 
 func readLines(path string) ([]string, error) {
