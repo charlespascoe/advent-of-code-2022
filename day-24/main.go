@@ -8,9 +8,6 @@ import (
 	"strings"
 )
 
-// var verbose = flag.Bool("v", false, "verbose output")
-// var part2 = flag.Bool("part2", false, "print part 2 solution")
-
 func main() {
 	input := flag.String("i", "input.txt", "program input")
 	flag.Parse()
@@ -20,15 +17,24 @@ func main() {
 		log.Fatalf("Couldn't read input file: %s", err)
 	}
 
-	val := NewValley(lines)
+	valley := NewValley(lines)
 
 	for i := 0; i < 10; i++ {
-		fmt.Printf("Valley at %d:\n%s\n\n", i, val.StringAtTime(i))
+		fmt.Printf("Valley at %d:\n%s\n\n", i, valley.StringAtTime(i))
 	}
 
-	solver := NewSolver(val)
+	fmt.Printf("Valley Dimensions: %d rows by %d columns\n", valley.Rows(), valley.Cols())
+	fmt.Printf("Blizzard sequence period: %d\n", valley.Period)
 
-	solver.Solve()
+	pathEnd := NewSolver(valley, valley.Start, valley.End, 0).Solve()
+
+	fmt.Printf("Shortest path time: %d\n", pathEnd.Time)
+
+	returnEnd := NewSolver(valley, valley.End, valley.Start, pathEnd.Time).Solve()
+	fmt.Printf("Shorest return time: %d\n", returnEnd.Time)
+
+	endAgain := NewSolver(valley, valley.Start, valley.End, returnEnd.Time).Solve()
+	fmt.Printf("Shorest time back to end: %d\n", endAgain.Time)
 }
 
 func readLines(path string) ([]string, error) {

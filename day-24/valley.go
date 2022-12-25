@@ -81,7 +81,10 @@ func (bls BlizzardSet) IsEmpty(pos Vector, time int) bool {
 
 type Valley struct {
 	blizzards [4]*BlizzardSet
-	size      Vector
+	// The time when the blizzard sequence repeats
+	Period     int
+	Size       Vector
+	Start, End Vector
 }
 
 func NewValley(lines []string) *Valley {
@@ -91,7 +94,10 @@ func NewValley(lines []string) *Valley {
 	fmt.Printf("Rows: %d, Cols: %d\n", rowCount, colCount)
 
 	val := &Valley{
-		size: Vector{X: colCount, Y: rowCount},
+		Size:   Vector{X: colCount, Y: rowCount},
+		Start:  Vector{0, -1},
+		End:    Vector{colCount - 1, rowCount},
+		Period: lcm(rowCount, colCount),
 	}
 
 	for i := 0; i < 4; i++ {
@@ -110,6 +116,14 @@ func NewValley(lines []string) *Valley {
 	return val
 }
 
+func (val *Valley) Rows() int {
+	return val.Size.Y
+}
+
+func (val *Valley) Cols() int {
+	return val.Size.X
+}
+
 func (val *Valley) IsEmpty(pos Vector, time int) bool {
 	for _, bl := range val.blizzards {
 		if !bl.IsEmpty(pos, time) {
@@ -123,12 +137,12 @@ func (val *Valley) IsEmpty(pos Vector, time int) bool {
 func (val *Valley) StringAtTimeWithElf(time int, elf Vector) string {
 	var str strings.Builder
 
-	for y := 0; y < val.size.Y; y++ {
+	for y := 0; y < val.Size.Y; y++ {
 		if str.Len() > 0 {
 			str.WriteRune('\n')
 		}
 
-		for x := 0; x < val.size.X; x++ {
+		for x := 0; x < val.Size.X; x++ {
 			if x == elf.X && y == elf.Y {
 				str.WriteRune('E')
 				continue
@@ -162,4 +176,21 @@ func (val *Valley) StringAtTime(time int) string {
 
 func (val *Valley) String() string {
 	return val.StringAtTime(0)
+}
+
+func lcm(a, b int) int {
+	return (a * b) / gcd(a, b)
+}
+
+func gcd(a, b int) int {
+	switch {
+	case a == 0:
+		return b
+	case b == 0:
+		return a
+	case a > b:
+		return gcd(a%b, b)
+	default:
+		return gcd(a, b%a)
+	}
 }
