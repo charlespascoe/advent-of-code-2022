@@ -11,8 +11,7 @@ import (
 	"strings"
 )
 
-// var verbose = flag.Bool("v", false, "verbose output")
-// var part2 = flag.Bool("part2", false, "print part 2 solution")
+var part2 = flag.Bool("part2", false, "print part 2 solution")
 
 func main() {
 	input := flag.String("i", "input.txt", "program input")
@@ -23,8 +22,14 @@ func main() {
 		log.Fatalf("Couldn't read input file: %s", err)
 	}
 
-	m := BuildMap(lines)
-	var nav Navigator = m.MapNavigator()
+	m := NewMap(lines)
+	var nav Navigator
+
+	if *part2 {
+		nav = m.CubeNavigator()
+	} else {
+		nav = m.MapNavigator()
+	}
 
 	actions := regexp.MustCompile(`\D|\d+`).FindAllString(moves, -1)
 
@@ -49,7 +54,7 @@ func main() {
 	pos := nav.Pos()
 	dir := nav.Dir()
 
-	password := 1000*(pos.Row + 1) + 4*(pos.Col+1) + int(dir.Turn(Left))
+	password := 1000*(pos.Row+1) + 4*(pos.Col+1) + int(dir.Turn(Left))
 
 	fmt.Printf("Map:\n%s\n\nMoves: %s\nPosition: %d, %d\nPassword: %d\n", m, moves, pos.Row+1, pos.Col+1, password)
 }

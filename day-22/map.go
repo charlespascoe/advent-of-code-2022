@@ -2,50 +2,15 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"strings"
 )
 
-type Vector struct {
-	Row, Col int
-}
-
-func (v Vector) Add(other Vector) Vector {
-	return Vector{v.Row + other.Row, v.Col + other.Col}
-}
-
-func (v Vector) InBounds(bounds Vector) bool {
-	return 0 <= v.Row && v.Row < bounds.Row && 0 <= v.Col && v.Col < bounds.Col
-}
-
-func (v Vector) Mod(mod Vector) Vector {
-	return Vector{v.Row % mod.Row, v.Col % mod.Col}
-}
-
-type Direction int
-
-const (
-	Up    Direction = 0
-	Right Direction = 1
-	Down  Direction = 2
-	Left  Direction = 3 // Equivalent to -1 mod 4
-)
-
-// Only use Left or Right
-func (dir Direction) Turn(turn Direction) Direction {
-	return Direction((int(dir) + int(turn)) % 4)
-}
-
-func (dir Direction) AsVector() Vector {
-	return [4]Vector{
-		{-1, 0}, // Up
-		{0, 1},  // Right
-		{1, 0},  // Down
-		{0, -1}, // Left
-	}[dir]
-}
-
-func (dir Direction) String() string {
-	return string("^>v<"[dir])
+type Navigator interface {
+	Turn(turn Direction)
+	Move() bool
+	Pos() Vector
+	Dir() Direction
 }
 
 type Tile struct {
@@ -61,51 +26,7 @@ type Map struct {
 	start     Vector
 }
 
-func (m *Map) String() string {
-	var str strings.Builder
-
-	for i, row := range m.tiles {
-		if str.Len() > 0 {
-			str.WriteByte('\n')
-		}
-
-		str.WriteString(fmt.Sprintf("%2d: ", i))
-
-		for _, tile := range row {
-			if tile == nil {
-				str.WriteByte(' ')
-			} else if tile.Wall {
-				str.WriteByte('#')
-			} else if tile.Mark != 0 {
-				str.WriteByte(tile.Mark)
-			} else {
-				str.WriteByte('.')
-			}
-		}
-	}
-
-	return str.String()
-}
-
-func (m *Map) MapNavigator() *MapNavigator {
-	return &MapNavigator{
-		tileMap: m,
-		dir:     Right,
-		pos:     m.start,
-	}
-}
-
-func (m *Map) get(r, c int) *Tile {
-	inBounds := (0 <= r && r < len(m.tiles)) && (0 <= c && c < len(m.tiles[0]))
-
-	if !inBounds {
-		return nil
-	}
-
-	return m.tiles[r][c]
-}
-
-func BuildMap(lines []string) *Map {
+func NewMap(lines []string) *Map {
 	maxLen := 0
 
 	for _, line := range lines {
@@ -151,6 +72,91 @@ func BuildMap(lines []string) *Map {
 	}
 }
 
+func (m *Map) MapNavigator() *MapNavigator {
+	return &MapNavigator{
+		tileMap: m,
+		dir:     Right,
+		pos:     m.start,
+	}
+}
+
+func (m *Map) CubeNavigator() *CubeNavigator {
+	edge := int(math.Sqrt(float64(m.tileCount / 6)))
+
+	faceWidth := len(m.tiles[0]) / edge
+	faceHeight := len(m.tiles) / edge
+	cubeNet := make(CubeNet, 0, faceHeight)
+
+	for r := 0; r < faceHeight; r++ {
+		row := make([]*Face, 0, faceWidth)
+
+		for c := 0; c < faceWidth; c++ {
+			row = append(row, m.buildFace(r, c, edge))
+		}
+
+		cubeNet = append(cubeNet, row)
+	}
+
+	cube := &Cube{Length: edge}
+
+	cube.Fold(cubeNet, cubeNet.Start(), Identity)
+
+	return &CubeNavigator{
+		cube:     cube,
+		dir:      Right,
+		rotation: Identity,
+		pos:      Vector{0, 0}, // Top-left corner of the start face
+	}
+}
+
+func (m *Map) String() string {
+	var str strings.Builder
+
+	for i, row := range m.tiles {
+		if str.Len() > 0 {
+			str.WriteByte('\n')
+		}
+
+		str.WriteString(fmt.Sprintf("%2d: ", i))
+
+		for _, tile := range row {
+			if tile == nil {
+				str.WriteByte(' ')
+			} else if tile.Wall {
+				str.WriteByte('#')
+			} else if tile.Mark != 0 {
+				str.WriteByte(tile.Mark)
+			} else {
+				str.WriteByte('.')
+			}
+		}
+	}
+
+	return str.String()
+}
+
+func (m *Map) buildFace(faceRow, faceCol, length int) *Face {
+	if m.get(Vector{faceRow * length, faceCol * length}) == nil {
+		return nil
+	}
+
+	face := &Face{}
+
+	for r := 0; r < length; r++ {
+		face.Tiles = append(face.Tiles, m.tiles[faceRow*length+r][faceCol*length:(faceCol+1)*length])
+	}
+
+	return face
+}
+
+func (m *Map) get(pos Vector) *Tile {
+	if !pos.InBounds(m.bounds) {
+		return nil
+	}
+
+	return m.tiles[pos.Row][pos.Col]
+}
+
 type MapNavigator struct {
 	tileMap *Map
 	dir     Direction
@@ -163,7 +169,7 @@ func (nav *MapNavigator) Turn(turn Direction) {
 
 func (nav *MapNavigator) Move() bool {
 	// Mark the tile that we're about to leave (see Map.String())
-	nav.tileMap.get(nav.pos.Row, nav.pos.Col).Mark = nav.dir.String()[0]
+	nav.tileMap.get(nav.pos).Mark = nav.dir.String()[0]
 
 	var tile *Tile
 	next := nav.pos
@@ -176,7 +182,7 @@ func (nav *MapNavigator) Move() bool {
 			next = next.Add(nav.tileMap.bounds).Mod(nav.tileMap.bounds)
 		}
 
-		tile = nav.tileMap.get(next.Row, next.Col)
+		tile = nav.tileMap.get(next)
 	}
 
 	if tile.Wall {
@@ -194,11 +200,4 @@ func (nav *MapNavigator) Pos() Vector {
 
 func (nav *MapNavigator) Dir() Direction {
 	return nav.dir
-}
-
-type Navigator interface {
-	Turn(turn Direction)
-	Move() bool
-	Pos() Vector
-	Dir() Direction
 }
