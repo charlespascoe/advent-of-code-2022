@@ -23,42 +23,35 @@ func main() {
 		log.Fatalf("Couldn't read input file: %s", err)
 	}
 
-	m, start := BuildMap(lines)
-	m.LinkFlat()
-	tile := start
+	m := BuildMap(lines)
+	var nav Navigator = m.MapNavigator()
 
-	dir := Right
-	actions := regexp.MustCompile(`\D+|\d+`).FindAllString(moves, -1) 
+	actions := regexp.MustCompile(`\D|\d+`).FindAllString(moves, -1)
 
 	for _, action := range actions {
 		count := 0
 		switch action {
 		case "L":
-			dir = dir.Turn(Left)
+			nav.Turn(Left)
 			continue
 		case "R":
-			dir = dir.Turn(Right)
+			nav.Turn(Right)
 			continue
 		default:
 			count = MustAtoi(action)
 		}
 
-		for i := 0; i < count; i++ {
-			tile.Mark = dir.String()[0]
-
-			next := tile.Move(dir)
-
-			if next.Wall {
-				break
-			}
-
-			tile = next
+		for count > 0 && nav.Move() {
+			count--
 		}
 	}
 
-	password := 1000*(tile.Row + 1) + 4*(tile.Col+1) + int(dir.Turn(Left))
+	pos := nav.Pos()
+	dir := nav.Dir()
 
-	fmt.Printf("Map:\n%s\n\nMoves: %s\nPassword: %d\n", m, moves, password)
+	password := 1000*(pos.Row + 1) + 4*(pos.Col+1) + int(dir.Turn(Left))
+
+	fmt.Printf("Map:\n%s\n\nMoves: %s\nPosition: %d, %d\nPassword: %d\n", m, moves, pos.Row+1, pos.Col+1, password)
 }
 
 func readInput(path string) ([]string, string, error) {
