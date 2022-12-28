@@ -8,8 +8,8 @@ import (
 
 // Valve TODO: Description.
 type Valve struct {
-	Name string
-	Rate int
+	Name    string
+	Rate    int
 	Tunnels []string
 }
 
@@ -25,8 +25,8 @@ func ParseValves(lines []string) ([]Valve, error) {
 		}
 
 		valves = append(valves, Valve{
-			Name: match[1],
-			Rate: MustAtoi(match[2]),
+			Name:    match[1],
+			Rate:    MustAtoi(match[2]),
 			Tunnels: strings.Split(match[3], ", "),
 		})
 	}

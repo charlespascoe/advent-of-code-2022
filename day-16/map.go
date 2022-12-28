@@ -13,9 +13,9 @@ func (dm DistMatrix) DistTo(name string) int {
 }
 
 type Map struct {
-	Valves []Valve
+	Valves      []Valve
 	ValveLookup map[string]Valve
-	Dists  map[string]DistMatrix
+	Dists       map[string]DistMatrix
 }
 
 func NewMap(valves []Valve) *Map {
@@ -26,9 +26,9 @@ func NewMap(valves []Valve) *Map {
 	}
 
 	return &Map{
-		Valves: valves,
+		Valves:      valves,
 		ValveLookup: vl,
-		Dists: make(map[string]DistMatrix),
+		Dists:       make(map[string]DistMatrix),
 	}
 }
 
@@ -59,7 +59,7 @@ func (m *Map) ComputeShortestPaths() {
 				}
 
 				if distMatrix.DistTo(next) > distMatrix.DistTo(v.Name)+1 {
-					distMatrix[next] = distMatrix.DistTo(v.Name)+1
+					distMatrix[next] = distMatrix.DistTo(v.Name) + 1
 				}
 
 				toVisit = append(toVisit, m.ValveLookup[next])
