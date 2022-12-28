@@ -147,6 +147,7 @@ func (solver *Solver) nextStep() *Path {
 	}
 
 	if path.Pos == solver.start || solver.valley.IsEmpty(path.Pos, path.Time+1) {
+		// We can stay in place for another minute
 		solver.nextMoves.Add(&Path{
 			Time: path.Time + 1,
 			Pos:  path.Pos,
@@ -166,7 +167,7 @@ func (solver *Solver) betterFound(path *Path) bool {
 		if previous.Time > path.Time {
 			// Because we use a min-heap for all moves, the first time we visit
 			// this tile should always be the soonest time
-			panic("unexpectedly encounting an existing solution that was worse")
+			panic("unexpectedly encountered an existing solution that was worse")
 		}
 
 		return true

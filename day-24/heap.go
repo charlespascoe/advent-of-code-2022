@@ -8,10 +8,6 @@ type Heap[T HeapItem[T]] struct {
 	items []T
 }
 
-func NewHeap[T HeapItem[T], K comparable]() *Heap[T] {
-	return &Heap[T]{}
-}
-
 func (h *Heap[T]) Count() int {
 	return len(h.items)
 }

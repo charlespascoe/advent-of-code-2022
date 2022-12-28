@@ -27,10 +27,6 @@ func (SubOperator) Apply(left, right int) int {
 	return left - right
 }
 
-func (SubOperator) Inverse(left, right int) int {
-	return left + right
-}
-
 func (SubOperator) FindUnknown(left bool, known, result int) int {
 	if left {
 		// result = unknown - known => unknown = result + known

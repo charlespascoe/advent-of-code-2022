@@ -192,6 +192,6 @@ func (nav *CubeNavigator) Dir() Direction {
 func rotateClockwise(pos Vector, edge int) Vector {
 	return Vector{
 		Row: pos.Col,
-		Col: -(pos.Row - (edge - 1)),
+		Col: edge - 1 - pos.Row,
 	}
 }
